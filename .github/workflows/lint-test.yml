@@ -1,0 +1,39 @@
+name: Lint and Test
+
+on:
+    pull_request:
+    push:
+        branches: 
+            - main
+
+jobs:
+    lint-test:
+        runs-on: ubuntu-latest
+
+        strategy:
+            matrix:
+                python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@v5
+              with:
+                python-version: ${{ matrix.python-version }}
+
+            - name: Set up Poetry
+              uses: abatilo/actions-poetry@v3
+              with:
+                poetry-version: "latest"
+            
+            - name: Install package 
+              run: poetry install
+
+            - name: Run Ruff only on 3.11
+              if: matrix.python-version == '3.11'
+              run: poetry run ruff check .
+
+            - name: Run Pytest
+              run: poetry run pytest ../
