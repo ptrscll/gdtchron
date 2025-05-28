@@ -36,6 +36,8 @@ lint.ignore = [
   "D213",  # Ignore multi line summary second line
 ]
 
+lint.pep8-naming.extend-ignore-names = ["T"]
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
