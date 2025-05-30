@@ -46,11 +46,11 @@ def g(r, constants=KETCHAM_99_FC):
     """Implement the length transform from Ketcham et al. (1999) (Equation 6).
 
     Args:
-        r: float (or numpy array of floats)
+        r : float or numpy array of floats
             Reduced length (unitless)
-        constants: dictionary 
+        constants : dictionary 
             Dictionary of constants associated with annealing model being used
-            Default dictionary: KETCHAM_99_FC
+            (default: KETCHAM_99_FC)
     
     Returns:
         Result of length transform as a float or numpy array of floats
@@ -66,13 +66,13 @@ def f(T, t, constants=KETCHAM_99_FC):
     """Calculate f following Equation 4 from Ketcham et al. (1999).
 
     Args:
-        T: float
+        T : float
             Temperature (K)
-        t: float or numpy array of floats
+        t : float or numpy array of floats
             How long the crystal annealed at a given temperature (s)
-        constants: dictionary   
+        constants : dictionary   
             Dictionary of constants associated with annealing model being used
-            Default dictionary: KETCHAM_99_FC
+            (default: KETCHAM_99_FC)
 
     Returns:
         float or numpy array of floats containing value(s) of f for each value 
@@ -93,13 +93,13 @@ def get_equiv_time(r_initial, T, constants = KETCHAM_99_FC):
     This function solves Equation 5 from Ketcham (2005) for t (time).
 
     Args:
-        r_initial: numpy array of floats
+        r_initial : numpy array of floats
             reduced length (unitless)
-        T: float
+        T : float
             Temperature (K)
-        constants: dictionary   
+        constants : dictionary   
             Dictionary of constants associated with annealing model being used
-            Default dictionary: KETCHAM_99_FC
+            (default: KETCHAM_99_FC)
 
     Returns:
         numpy array of floats containing time(s) (in seconds) it would take to
@@ -122,13 +122,13 @@ def get_next_r(T, cumulative_t, constants=KETCHAM_99_FC):
     This function solves Equation 5 from Ketcham (2005) for r (reduced length).
 
     Args:
-        T: float
+        T : float
             Temperature (K)
-        cumulative_t: numpy array of floats
+        cumulative_t : numpy array of floats
             How long the crystal annealed at a given temperature (s)
-        constants: dictionary   
+        constants : dictionary   
             Dictionary of constants associated with annealing model being used
-            Default dictionary: KETCHAM_99_FC
+            (default: KETCHAM_99_FC)
 
     Returns:
         numpy array of floats containing mean reduced length(s) of fission
@@ -171,26 +171,26 @@ def calc_annealing(r_initial, T, start, end, next_nan_index,
     """Calculate the annealing of fission tracks across a timestep.
 
     Args:
-        r_initial: numpy array of floats
+        r_initial : numpy array of floats
             Initial mean reduced lengths (unitless) of fission tracks at start 
             of timestep. The value at index 0 corresponds to fission tracks
             produced at the first timestep, the value at index 1 corresponds to
             fission tracks produced at the second timstep, and so on. np.nan
             should be stored at indices corresponding to fission tracks
             produced at the current timestep or at future timesteps.
-        T: float
+        T : float
             Temperature (K)
-        start: float
+        start : float
             Start time of timestep (yrs BP)
-        end: float
+        end : float
             End time of timestep (yrs BP)
-        next_nan_index: int
+        next_nan_index : int
             First index of r_initial to have a value of np.nan. This index
             corresponds to fission tracks that will be produced at the current
             timestep.
-        constants: dictionary   
+        constants : dictionary   
             Dictionary of constants associated with annealing model being used
-            Default dictionary: KETCHAM_99_FC
+            (default: KETCHAM_99_FC)
 
     Returns:
         numpy array of floats containing the updated mean reduced length(s) of 
