@@ -37,13 +37,13 @@ def test_g():
 def test_f():
     """Unit tests for f (right-hand side of main annealing equation)."""
     # Confirm NaNs stay NaN
-    assert np.isnan(aft.f(T=450., t = np.nan))
+    assert np.isnan(aft.f(T=450., t=np.nan))
 
     # Confirm calculations performed properly for np array
     # Using Ketcham et al. (1999) fanning curvilinear model:
-    assert aft.f(T=450, t = np.array([np.nan, 1e10, 1e11]))[1:] == \
+    assert aft.f(T=450, t=np.array([np.nan, 1e10, 1e11]))[1:] == \
             pytest.approx(np.array([-0.971615, -0.386586]))
-    assert np.isnan(aft.f(T=450, t = np.array([np.nan, 0.9, 0.1]))[0])
+    assert np.isnan(aft.f(T=450, t=np.array([np.nan, 0.9, 0.1]))[0])
 
     # Confirm calculations work for dummy constants
     assert aft.f(T=np.e, t=np.e ** 2, constants=TEST_CONSTS) == 0.
@@ -91,30 +91,30 @@ def test_get_next_r():
 
 def test_calc_annealing():
     """Unit tests for calc_annealing."""
-    ### Using Ketcham et al. (1999) fanning curvilinear model ###
+    # Using Ketcham et al. (1999) fanning curvilinear model
 
     # Confirm calculations performed properly for initial timestep
     assert aft.calc_annealing(r_initial=np.array([np.nan, np.nan]),
-                              T = 450.,
-                              start = 1e10 / aft.SECONDS_PER_YEAR,
-                              end = 0.,
+                              T=450.,
+                              start=1e10 / aft.SECONDS_PER_YEAR,
+                              end=0.,
                               next_nan_index=0)[0] == pytest.approx(0.863753)
     assert np.isnan(aft.calc_annealing(r_initial=np.array([np.nan, np.nan]),
-                                       T = 450.,
-                                       start = 1e10 / aft.SECONDS_PER_YEAR,
-                                       end = 0.,
+                                       T=450.,
+                                       start=1e10 / aft.SECONDS_PER_YEAR,
+                                       end=0.,
                                        next_nan_index=0)[1])
     
     # Confirm calculations performed properly for intermediate timestep
     r1 = aft.calc_annealing(r_initial=np.array([np.nan, np.nan, np.nan]),
-                            T = 450.,
-                            start = 1e11 / aft.SECONDS_PER_YEAR,
-                            end = 1e10 / aft.SECONDS_PER_YEAR,
+                            T=450.,
+                            start=1e11 / aft.SECONDS_PER_YEAR,
+                            end=1e10 / aft.SECONDS_PER_YEAR,
                             next_nan_index=0)
     r2 = aft.calc_annealing(r_initial=r1,
-                            T = 450.,
-                            start = 1e10 / aft.SECONDS_PER_YEAR,
-                            end = 0. / aft.SECONDS_PER_YEAR,
+                            T=450.,
+                            start=1e10 / aft.SECONDS_PER_YEAR,
+                            end=0. / aft.SECONDS_PER_YEAR,
                             next_nan_index=1)
     assert r2[:2] == pytest.approx(np.array([0.830875, 0.863753]))
     assert np.isnan(r2[2])
@@ -122,30 +122,30 @@ def test_calc_annealing():
     # Confirm calculations performed properly for final timestep
     # Also confirm that full annealing of some (but not all tracks) works
     r1 = aft.calc_annealing(r_initial=np.array([np.nan, np.nan]),
-                            T = 650.,
-                            start = 1.8e19 / aft.SECONDS_PER_YEAR,
-                            end = 1e19 / aft.SECONDS_PER_YEAR,
+                            T=650.,
+                            start=1.8e19 / aft.SECONDS_PER_YEAR,
+                            end=1e19 / aft.SECONDS_PER_YEAR,
                             next_nan_index=0)
     assert aft.calc_annealing(r_initial=r1,
-                              T = 550.,
-                              start = 1e19 / aft.SECONDS_PER_YEAR,
-                              end = 0.,
+                              T=550.,
+                              start=1e19 / aft.SECONDS_PER_YEAR,
+                              end=0.,
                               next_nan_index=1) \
                                 == pytest.approx(np.array([0., 0.0625308]))
     
     # Confirm calculations work when all tracks fully anneal at end
     assert aft.calc_annealing(r_initial=r1,
-                              T = 950.,
-                              start = 1e19 / aft.SECONDS_PER_YEAR,
-                              end = 0.,
+                              T=950.,
+                              start=1e19 / aft.SECONDS_PER_YEAR,
+                              end=0.,
                               next_nan_index=1) \
                                 == pytest.approx(np.array([0., 0.]))
 
     # Confirm calculations work for dummy constants
     assert aft.calc_annealing(r_initial=np.array([np.nan]),
-                              T = np.e,
-                              start = (np.e ** 2) / aft.SECONDS_PER_YEAR,
-                              end = 0.,
+                              T=np.e,
+                              start=(np.e ** 2) / aft.SECONDS_PER_YEAR,
+                              end=0.,
                               next_nan_index=0,
                               constants=TEST_CONSTS)[0] == pytest.approx(0.5)
     
