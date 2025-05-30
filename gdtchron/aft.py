@@ -12,9 +12,9 @@
 import numpy as np
 from scipy.stats import norm
 
-#################
-### Constants ###
-#################
+#############
+# Constants #
+#############
 
 # Constants for the fanning curvilinear model from Ketcham et al. (1999)
 KETCHAM_99_FC = {
@@ -37,9 +37,9 @@ LENGTH_DIST_SPACING = 100
 # 50 is acceptable for sd/mean calcs, larger nums needed for pretty graphs
 
 
-###########################
-### Annealing Functions ###
-###########################
+#######################
+# Annealing Functions #
+#######################
 
 
 def g(r, constants=KETCHAM_99_FC):
@@ -59,7 +59,7 @@ def g(r, constants=KETCHAM_99_FC):
     alpha = constants["alpha"]
     beta = constants["beta"]
 
-    return (((1- r ** beta) / beta) ** alpha - 1) / alpha
+    return (((1 - r ** beta) / beta) ** alpha - 1) / alpha
 
 
 def f(T, t, constants=KETCHAM_99_FC):
@@ -87,7 +87,7 @@ def f(T, t, constants=KETCHAM_99_FC):
     return c0 + c1 * ((np.log(t) - c2) / (np.log(1 / T) - c3))
 
 
-def get_equiv_time(r_initial, T, constants = KETCHAM_99_FC):
+def get_equiv_time(r_initial, T, constants=KETCHAM_99_FC):
     """Calculate time it would take to reach a reduced length at temperature T.
      
     This function solves Equation 5 from Ketcham (2005) for t (time).
@@ -111,7 +111,7 @@ def get_equiv_time(r_initial, T, constants = KETCHAM_99_FC):
     c2 = constants["c2"]
     c3 = constants["c3"]
 
-    exponent =((g(r_initial, constants) - c0) / c1) * (np.log(1 / T) - c3) + c2
+    exponent = ((g(r_initial, constants) - c0) / c1) * (np.log(1 / T) - c3) + c2
 
     return np.exp(exponent)
 
@@ -162,10 +162,7 @@ def get_next_r(T, cumulative_t, constants=KETCHAM_99_FC):
 
     return r
 
-# Function to calc annealing at each tstep
-# start time, end time measured in yrs BP
-# T measured in K
-# next_nan_index corresponds to the index of the current timestep in the r array
+
 def calc_annealing(r_initial, T, start, end, next_nan_index, 
                    constants=KETCHAM_99_FC):
     """Calculate the annealing of fission tracks across a timestep.
@@ -199,7 +196,7 @@ def calc_annealing(r_initial, T, start, end, next_nan_index,
     """
     # Convert timesteps to seconds
     start *= SECONDS_PER_YEAR
-    end   *= SECONDS_PER_YEAR
+    end *= SECONDS_PER_YEAR
 
     # Getting equivalent time it would have taken to reach current reduced
     # lengths if the temperature had always been at its current value
