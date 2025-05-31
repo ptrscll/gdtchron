@@ -18,6 +18,9 @@ TEST_CONSTS = {
     "l_intercept": 15.72
 }
 
+# This Dpar yields r_mr0 = 0.5
+TEST_DPAR = (1.834 - np.log(2)) / 0.647 + 1.75
+
 
 def test_g():
     """Unit tests for g (length transform)."""
@@ -148,4 +151,17 @@ def test_calc_annealing():
                               end=0.,
                               next_nan_index=0,
                               constants=TEST_CONSTS)[0] == pytest.approx(0.5)
+    
+
+def test_dpar_conversion():
+    """Unit tests for dpar_conversion."""
+    # Test that dpar conversion works for the following cases:
+    #   Normal conversion (r_mr = 0.625)
+    #   When r_mr = r_mr0 (r_mr = 0.5)
+    #   When r_mr < r_mr0 (r_mr = 0.2)
+    #   When r_mr = 0
+    assert aft.dpar_conversion(r_mr=np.array([0.625, 0.5, 0.2, 0.]),
+                               Dpar=TEST_DPAR) == \
+        pytest.approx(np.array([0.5, 0., 0., 0.]), abs=1e-6)
+
     
