@@ -41,8 +41,8 @@ LENGTH_DIST_SPACING = 100
 def g(r, constants=KETCHAM_99_FC):
     """Implement the length transform from Ketcham et al. (1999) (Equation 6).
 
-    Parameters
-    ----------
+    Arguments
+    ---------
         r : float or numpy array of floats
             Reduced length (unitless)
         constants : dictionary 
@@ -225,3 +225,47 @@ def calc_annealing(r_initial, T, start, end, next_nan_index,
                                     cumulative_t=cumulative_t[~fully_annealed],
                                     constants=constants)
     return r
+
+#############################
+# Age Calculation Functions #
+#############################
+
+
+def dpar_conversion(r_mr, Dpar, constants=KETCHAM_99_FC):
+    """Convert reduced lengths for one apatite to another apatite.
+
+    This function converts from the reduced lengths of a more 
+    resistant apatite to reduced lengths of a less resistant apatite
+    following Equations 7, 8, and 9a of Ketcham (2005).
+
+    Arguments
+    ---------
+        r_mr : numpy array of floats
+            mean reduced lengths (unitless) of fission tracks for the more
+            resitant apatite
+        Dpar : float
+            Etch figure length (micrometers) for the apatite
+        constants : dictionary   
+            Dictionary of constants associated with annealing model being used
+            (default: KETCHAM_99_FC)
+
+    Returns
+    -------
+        numpy array of mean reduced lengths (unitless) of fission tracks for 
+        the more resitant apatite.
+    
+    """
+    # Calculate r_mr0 via Equation 9a
+    r_mr0 = 1 - np.exp(0.647 * (Dpar - 1.75) - 1.834)
+
+    # Calculate kappa via Equation 8
+    kappa = constants["r_kappa_sum"] - r_mr0
+
+    # Calculate r_lr via Equation 7
+    base = (r_mr - r_mr0) / (1 - r_mr0)
+
+    # Anywhere r_mr < r_mr0 should be fully annealed and have r = 0
+    base[r_mr < r_mr0] = 0
+
+    # Returning r_lr
+    return base ** kappa
