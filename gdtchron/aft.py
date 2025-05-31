@@ -1,13 +1,9 @@
-################################################################################
-# aft.py
-#
-# Functions to execute the forward modeling of the apatite fission track system,
-# following workflow from Ketcham (2005). 
-#
-# The current code supports producing ages and distributions of c-axis projected
-# lengths. This code uses the fanning curvilinear (FC) model from Ketcham et al.
-# (1999). 
-################################################################################
+"""Module for forward modeling of the apatite fission track system.
+
+This code follows the workflow from Ketcham (2005) and supports producing ages 
+and distributions of c-axis projected lengths. This code uses the fanning 
+curvilinear (FC) model from Ketcham et al. (1999). 
+"""
 
 import numpy as np
 from scipy.stats import norm
@@ -45,14 +41,16 @@ LENGTH_DIST_SPACING = 100
 def g(r, constants=KETCHAM_99_FC):
     """Implement the length transform from Ketcham et al. (1999) (Equation 6).
 
-    Args:
+    Parameters
+    ----------
         r : float or numpy array of floats
             Reduced length (unitless)
         constants : dictionary 
             Dictionary of constants associated with annealing model being used
             (default: KETCHAM_99_FC)
     
-    Returns:
+    Returns
+    -------
         Result of length transform as a float or numpy array of floats
     
     """
@@ -65,7 +63,8 @@ def g(r, constants=KETCHAM_99_FC):
 def f(T, t, constants=KETCHAM_99_FC):
     """Calculate f following Equation 4 from Ketcham et al. (1999).
 
-    Args:
+    Arguments
+    ---------
         T : float
             Temperature (K)
         t : float or numpy array of floats
@@ -74,7 +73,8 @@ def f(T, t, constants=KETCHAM_99_FC):
             Dictionary of constants associated with annealing model being used
             (default: KETCHAM_99_FC)
 
-    Returns:
+    Returns
+    -------
         float or numpy array of floats containing value(s) of f for each value 
         of t
 
@@ -92,7 +92,8 @@ def get_equiv_time(r_initial, T, constants=KETCHAM_99_FC):
      
     This function solves Equation 5 from Ketcham (2005) for t (time).
 
-    Args:
+    Arguments
+    ---------
         r_initial : numpy array of floats
             reduced length (unitless)
         T : float
@@ -101,7 +102,8 @@ def get_equiv_time(r_initial, T, constants=KETCHAM_99_FC):
             Dictionary of constants associated with annealing model being used
             (default: KETCHAM_99_FC)
 
-    Returns:
+    Returns
+    -------
         numpy array of floats containing time(s) (in seconds) it would take to
         anneal to the given reduced length(s) if T remained constant
 
@@ -121,7 +123,8 @@ def get_next_r(T, cumulative_t, constants=KETCHAM_99_FC):
      
     This function solves Equation 5 from Ketcham (2005) for r (reduced length).
 
-    Args:
+    Arguments
+    ---------
         T : float
             Temperature (K)
         cumulative_t : numpy array of floats
@@ -130,7 +133,8 @@ def get_next_r(T, cumulative_t, constants=KETCHAM_99_FC):
             Dictionary of constants associated with annealing model being used
             (default: KETCHAM_99_FC)
 
-    Returns:
+    Returns
+    -------
         numpy array of floats containing mean reduced length(s) of fission
         tracks that annealed at the given temperature for the given period(s)
         of time
@@ -167,7 +171,8 @@ def calc_annealing(r_initial, T, start, end, next_nan_index,
                    constants=KETCHAM_99_FC):
     """Calculate the annealing of fission tracks across a timestep.
 
-    Args:
+    Arguments
+    ---------
         r_initial : numpy array of floats
             Initial mean reduced lengths (unitless) of fission tracks at start 
             of timestep. The value at index 0 corresponds to fission tracks
@@ -189,7 +194,8 @@ def calc_annealing(r_initial, T, start, end, next_nan_index,
             Dictionary of constants associated with annealing model being used
             (default: KETCHAM_99_FC)
 
-    Returns:
+    Returns
+    -------
         numpy array of floats containing the updated mean reduced length(s) of 
         fission tracks at the end of this timestep. 
         
