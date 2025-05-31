@@ -41,17 +41,17 @@ LENGTH_DIST_SPACING = 100
 def g(r, constants=KETCHAM_99_FC):
     """Implement the length transform from Ketcham et al. (1999) (Equation 6).
 
-    Arguments
-    ---------
-        r : float or numpy array of floats
-            Reduced length (unitless)
-        constants : dictionary 
-            Dictionary of constants associated with annealing model being used
-            (default: KETCHAM_99_FC)
+    Parameters
+    ----------
+    r : float or numpy array of floats
+        Reduced length (unitless)
+    constants : dictionary 
+        Dictionary of constants associated with annealing model being used
+        (default: KETCHAM_99_FC)
     
     Returns
     -------
-        Result of length transform as a float or numpy array of floats
+    Result of length transform as a float or numpy array of floats
     
     """
     alpha = constants["alpha"]
@@ -63,20 +63,19 @@ def g(r, constants=KETCHAM_99_FC):
 def f(T, t, constants=KETCHAM_99_FC):
     """Calculate f following Equation 4 from Ketcham et al. (1999).
 
-    Arguments
-    ---------
-        T : float
-            Temperature (K)
-        t : float or numpy array of floats
-            How long the crystal annealed at a given temperature (s)
-        constants : dictionary   
-            Dictionary of constants associated with annealing model being used
-            (default: KETCHAM_99_FC)
+    Parameters
+    ----------
+    T : float
+        Temperature (K)
+    t : float or numpy array of floats
+        How long the crystal annealed at a given temperature (s)
+    constants : dictionary   
+        Dictionary of constants associated with annealing model being used
+        (default: KETCHAM_99_FC)
 
     Returns
     -------
-        float or numpy array of floats containing value(s) of f for each value 
-        of t
+    float or numpy array of floats containing value(s) of f for each value of t
 
     """
     c0 = constants["c0"]
@@ -92,20 +91,20 @@ def get_equiv_time(r_initial, T, constants=KETCHAM_99_FC):
      
     This function solves Equation 5 from Ketcham (2005) for t (time).
 
-    Arguments
-    ---------
-        r_initial : numpy array of floats
-            reduced length (unitless)
-        T : float
-            Temperature (K)
-        constants : dictionary   
-            Dictionary of constants associated with annealing model being used
-            (default: KETCHAM_99_FC)
+    Parameters
+    ----------
+    r_initial : numpy array of floats
+        reduced length (unitless)
+    T : float
+        Temperature (K)
+    constants : dictionary   
+        Dictionary of constants associated with annealing model being used
+        (default: KETCHAM_99_FC)
 
     Returns
     -------
-        numpy array of floats containing time(s) (in seconds) it would take to
-        anneal to the given reduced length(s) if T remained constant
+    numpy array of floats containing time(s) (in seconds) it would take to
+    anneal to the given reduced length(s) if T remained constant
 
     """
     c0 = constants["c0"]
@@ -123,21 +122,20 @@ def get_next_r(T, cumulative_t, constants=KETCHAM_99_FC):
      
     This function solves Equation 5 from Ketcham (2005) for r (reduced length).
 
-    Arguments
-    ---------
-        T : float
-            Temperature (K)
-        cumulative_t : numpy array of floats
-            How long the crystal annealed at a given temperature (s)
-        constants : dictionary   
-            Dictionary of constants associated with annealing model being used
-            (default: KETCHAM_99_FC)
+    Parameters
+    ----------
+    T : float
+        Temperature (K)
+    cumulative_t : numpy array of floats
+        How long the crystal annealed at a given temperature (s)
+    constants : dictionary   
+        Dictionary of constants associated with annealing model being used
+        (default: KETCHAM_99_FC)
 
     Returns
     -------
-        numpy array of floats containing mean reduced length(s) of fission
-        tracks that annealed at the given temperature for the given period(s)
-        of time
+    numpy array of floats containing mean reduced length(s) of fission tracks
+    that annealed at the given temperature for the given period(s) of time
 
     """
     alpha = constants["alpha"]
@@ -171,33 +169,33 @@ def calc_annealing(r_initial, T, start, end, next_nan_index,
                    constants=KETCHAM_99_FC):
     """Calculate the annealing of fission tracks across a timestep.
 
-    Arguments
-    ---------
-        r_initial : numpy array of floats
-            Initial mean reduced lengths (unitless) of fission tracks at start 
-            of timestep. The value at index 0 corresponds to fission tracks
-            produced at the first timestep, the value at index 1 corresponds to
-            fission tracks produced at the second timstep, and so on. np.nan
-            should be stored at indices corresponding to fission tracks
-            produced at the current timestep or at future timesteps.
-        T : float
-            Temperature (K)
-        start : float
-            Start time of timestep (yrs BP)
-        end : float
-            End time of timestep (yrs BP)
-        next_nan_index : int
-            First index of r_initial to have a value of np.nan. This index
-            corresponds to fission tracks that will be produced at the current
-            timestep.
-        constants : dictionary   
-            Dictionary of constants associated with annealing model being used
-            (default: KETCHAM_99_FC)
+    Parameters
+    ----------
+    r_initial : numpy array of floats
+        Initial mean reduced lengths (unitless) of fission tracks at start 
+        of timestep. The value at index 0 corresponds to fission tracks
+        produced at the first timestep, the value at index 1 corresponds to
+        fission tracks produced at the second timstep, and so on. np.nan
+        should be stored at indices corresponding to fission tracks
+        produced at the current timestep or at future timesteps.
+    T : float
+        Temperature (K)
+    start : float
+        Start time of timestep (yrs BP)
+    end : float
+        End time of timestep (yrs BP)
+    next_nan_index : int
+        First index of r_initial to have a value of np.nan. This index
+        corresponds to fission tracks that will be produced at the current
+        timestep.
+    constants : dictionary   
+        Dictionary of constants associated with annealing model being used
+        (default: KETCHAM_99_FC)
 
     Returns
     -------
-        numpy array of floats containing the updated mean reduced length(s) of 
-        fission tracks at the end of this timestep. 
+    numpy array of floats containing the updated mean reduced length(s) of 
+    fission tracks at the end of this timestep. 
         
     """
     # Convert timesteps to seconds
@@ -238,21 +236,21 @@ def dpar_conversion(r_mr, Dpar, constants=KETCHAM_99_FC):
     resistant apatite to reduced lengths of a less resistant apatite
     following Equations 7, 8, and 9a of Ketcham (2005).
 
-    Arguments
-    ---------
-        r_mr : numpy array of floats
-            mean reduced lengths (unitless) of fission tracks for the more
-            resitant apatite
-        Dpar : float
-            Etch figure length (micrometers) for the apatite
-        constants : dictionary   
-            Dictionary of constants associated with annealing model being used
-            (default: KETCHAM_99_FC)
+    Parameters
+    ----------
+    r_mr : numpy array of floats
+        mean reduced lengths (unitless) of fission tracks for the more
+        resitant apatite
+    Dpar : float
+        Etch figure length (micrometers) for the apatite
+    constants : dictionary   
+        Dictionary of constants associated with annealing model being used
+        (default: KETCHAM_99_FC)
 
     Returns
     -------
-        numpy array of mean reduced lengths (unitless) of fission tracks for 
-        the more resitant apatite.
+    numpy array of mean reduced lengths (unitless) of fission tracks for 
+    the more resitant apatite.
     
     """
     # Calculate r_mr0 via Equation 9a
