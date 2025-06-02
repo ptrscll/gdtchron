@@ -239,7 +239,7 @@ def dpar_conversion(r_mr, Dpar, constants=KETCHAM_99_FC):
     Parameters
     ----------
     r_mr : numpy array of floats
-        mean reduced lengths (unitless) of fission tracks for the more
+        Mean reduced lengths (unitless) of fission tracks for the more
         resitant apatite
     Dpar : float
         Etch figure length (micrometers) for the apatite
@@ -277,7 +277,7 @@ def r_to_rho(r):
     Parameters
     ----------
     r : numpy array of floats
-        mean reduced lengths (unitless) of fission tracks for the specific
+        Mean reduced lengths (unitless) of fission tracks for the specific
         apatite for each *point* on the apatite's time-temperature path. These 
         values should already be converted to account for Dpar variations.
 
@@ -310,3 +310,41 @@ def r_to_rho(r):
     rho[zero_indices] = 0
     
     return rho
+
+
+def calc_aft_age(r_final, tsteps, rho_st=0.893):
+    """Calculate AFT age based on present-day reduced lengths.
+
+    This function uses Equations 13-14 from Ketcham (2005).
+
+    Parameters
+    ----------
+    r_final : numpy array of floats
+        Mean reduced lengths (unitless) of fission tracks produced at each 
+        point on the apatite's time-temperature path. These values should 
+        already be converted to account for Dpar variations.
+
+    tsteps : numpy array of floats
+        Array of times (yrs BP) that each set of fission tracks was produced
+        at. This array should be in descending (i.e., chronological) order. The
+        final time in this array should be 0. and should not have a
+        corresponding reduced length in r_final.
+
+    rho_st : float
+        Fission track density reduction in the age standard
+        (default value: 0.893, the value for the Durango apatite)
+
+    Returns
+    -------
+    AFT age (yrs BP) as a float
+    
+    """
+    # Calculate FT densities via Equation 13
+    rho = r_to_rho(r_final)
+
+    # Calculate durations of each timestep
+    delta_t = tsteps[:-1] - tsteps[1:]
+
+    # Calculate ages from densities via Equation 14 
+    # Also ensure age can't be negative
+    return max(np.sum(rho * delta_t) / rho_st, 0)
