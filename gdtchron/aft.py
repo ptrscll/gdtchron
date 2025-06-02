@@ -22,16 +22,11 @@ KETCHAM_99_FC = {
     "beta": -11.988,
     "r_kappa_sum": 1.,
     "l_slope": 0.35,        # Value taken from HeFTy
-    "l_intercept": 15.72
+    "l_intercept": 15.72    # Value taken from HeFTy
 }
 
 # Other constants
-# #TODO: Check if changing from 365.25 to 365.2422 substantially changed results
 SECONDS_PER_YEAR = 365.2422 * 24 * 60 * 60 
-# TODO: Make this a parameter of its corresponding function
-LENGTH_DIST_SPACING = 100 
-# 50 is acceptable for sd/mean calcs, larger nums needed for pretty graphs
-
 
 #######################
 # Annealing Functions #
@@ -60,12 +55,12 @@ def g(r, constants=KETCHAM_99_FC):
     return (((1 - r ** beta) / beta) ** alpha - 1) / alpha
 
 
-def f(T, t, constants=KETCHAM_99_FC):
+def f(temperature, t, constants=KETCHAM_99_FC):
     """Calculate f following Equation 4 from Ketcham et al. (1999).
 
     Parameters
     ----------
-    T : float
+    temperature : float
         Temperature (K)
     t : float or numpy array of floats
         How long the crystal annealed at a given temperature (s)
@@ -83,10 +78,10 @@ def f(T, t, constants=KETCHAM_99_FC):
     c2 = constants["c2"]
     c3 = constants["c3"]
 
-    return c0 + c1 * ((np.log(t) - c2) / (np.log(1 / T) - c3))
+    return c0 + c1 * ((np.log(t) - c2) / (np.log(1 / temperature) - c3))
 
 
-def get_equiv_time(r_initial, T, constants=KETCHAM_99_FC):
+def get_equiv_time(r_initial, temperature, constants=KETCHAM_99_FC):
     """Calculate time it would take to reach a reduced length at temperature T.
      
     This function solves Equation 5 from Ketcham (2005) for t (time).
@@ -95,7 +90,7 @@ def get_equiv_time(r_initial, T, constants=KETCHAM_99_FC):
     ----------
     r_initial : numpy array of floats
         reduced length (unitless)
-    T : float
+    temperature : float
         Temperature (K)
     constants : dictionary   
         Dictionary of constants associated with annealing model being used
@@ -112,19 +107,20 @@ def get_equiv_time(r_initial, T, constants=KETCHAM_99_FC):
     c2 = constants["c2"]
     c3 = constants["c3"]
 
-    exponent = ((g(r_initial, constants) - c0) / c1) * (np.log(1 / T) - c3) + c2
+    exponent = ((g(r_initial, constants) - c0) / c1) * \
+        (np.log(1 / temperature) - c3) + c2
 
     return np.exp(exponent)
 
 
-def get_next_r(T, cumulative_t, constants=KETCHAM_99_FC):
+def get_next_r(temperature, cumulative_t, constants=KETCHAM_99_FC):
     """Calculate reduced lengths after annealing over a given time period.
      
     This function solves Equation 5 from Ketcham (2005) for r (reduced length).
 
     Parameters
     ----------
-    T : float
+    temperature : float
         Temperature (K)
     cumulative_t : numpy array of floats
         How long the crystal annealed at a given temperature (s)
@@ -141,7 +137,7 @@ def get_next_r(T, cumulative_t, constants=KETCHAM_99_FC):
     alpha = constants["alpha"]
     beta = constants["beta"]
 
-    inner_base = alpha * f(T, cumulative_t, constants) + 1
+    inner_base = alpha * f(temperature, cumulative_t, constants) + 1
     
     # Anywhere the inner base is negative has high enough temperatures that it
     # got fully annealed
@@ -165,7 +161,7 @@ def get_next_r(T, cumulative_t, constants=KETCHAM_99_FC):
     return r
 
 
-def calc_annealing(r_initial, T, start, end, next_nan_index, 
+def calc_annealing(r_initial, temperature, start, end, next_nan_index, 
                    constants=KETCHAM_99_FC):
     """Calculate the annealing of fission tracks across a timestep.
 
@@ -178,7 +174,7 @@ def calc_annealing(r_initial, T, start, end, next_nan_index,
         fission tracks produced at the second timstep, and so on. np.nan
         should be stored at indices corresponding to fission tracks
         produced at the current timestep or at future timesteps.
-    T : float
+    temperature : float
         Temperature (K)
     start : float
         Start time of timestep (yrs BP)
@@ -210,7 +206,7 @@ def calc_annealing(r_initial, T, start, end, next_nan_index,
     t_before = np.zeros(np.size(r_initial))
     t_before[~fully_annealed] = \
         get_equiv_time(r_initial=r_initial[~fully_annealed], 
-                       T=T, constants=constants)
+                       temperature=temperature, constants=constants)
     t_before[next_nan_index] = 0  # Accounting for FTs formed at this timestep
 
     # Adding the duration of the current timestep to get the new cumulative
@@ -219,7 +215,7 @@ def calc_annealing(r_initial, T, start, end, next_nan_index,
 
     # Calculating next r
     r = np.zeros(np.size(r_initial))
-    r[~fully_annealed] = get_next_r(T=T, 
+    r[~fully_annealed] = get_next_r(temperature=temperature, 
                                     cumulative_t=cumulative_t[~fully_annealed],
                                     constants=constants)
     return r
@@ -229,7 +225,7 @@ def calc_annealing(r_initial, T, start, end, next_nan_index,
 #############################
 
 
-def dpar_conversion(r_mr, Dpar, constants=KETCHAM_99_FC):
+def dpar_conversion(r_mr, dpar, constants=KETCHAM_99_FC):
     """Convert reduced lengths for one apatite to another apatite.
 
     This function converts from the reduced lengths of a more 
@@ -241,7 +237,7 @@ def dpar_conversion(r_mr, Dpar, constants=KETCHAM_99_FC):
     r_mr : numpy array of floats
         Mean reduced lengths (unitless) of fission tracks for the more
         resitant apatite
-    Dpar : float
+    dpar : float
         Etch figure length (micrometers) for the apatite
     constants : dictionary   
         Dictionary of constants associated with annealing model being used
@@ -254,7 +250,7 @@ def dpar_conversion(r_mr, Dpar, constants=KETCHAM_99_FC):
     
     """
     # Calculate r_mr0 via Equation 9a
-    r_mr0 = 1 - np.exp(0.647 * (Dpar - 1.75) - 1.834)
+    r_mr0 = 1 - np.exp(0.647 * (dpar - 1.75) - 1.834)
 
     # Calculate kappa via Equation 8
     kappa = constants["r_kappa_sum"] - r_mr0
@@ -279,7 +275,7 @@ def r_to_rho(r):
     r : numpy array of floats
         Mean reduced lengths (unitless) of fission tracks for the specific
         apatite for each *point* on the apatite's time-temperature path. These 
-        values should already be converted to account for Dpar variations.
+        values should already be converted to account for dpar variations.
 
     Returns
     -------
@@ -315,14 +311,18 @@ def r_to_rho(r):
 def calc_aft_age(r_final, tsteps, rho_st=0.893):
     """Calculate AFT age based on present-day reduced lengths.
 
-    This function uses Equations 13-14 from Ketcham (2005).
+    This function uses Equations 13-14 from Ketcham (2005). Note that, if
+    rho_st < 1, then an un-annealed apatite will have an age older than
+    the earliest timestep. This behavior is reproduced in HeFTy when
+    using both the Ketcham et al. (1999) and Ketcham et al. (2007)
+    parameters.
 
     Parameters
     ----------
     r_final : numpy array of floats
         Mean reduced lengths (unitless) of fission tracks produced at each 
         point on the apatite's time-temperature path. These values should 
-        already be converted to account for Dpar variations.
+        already be converted to account for dpar variations.
 
     tsteps : numpy array of floats
         Array of times (yrs BP) that each set of fission tracks was produced
@@ -348,3 +348,309 @@ def calc_aft_age(r_final, tsteps, rho_st=0.893):
     # Calculate ages from densities via Equation 14 
     # Also ensure age can't be negative
     return max(np.sum(rho * delta_t) / rho_st, 0)
+
+################################
+# Length Calculation Functions #
+################################
+
+
+def l_conversion(r, dpar, constants=KETCHAM_99_FC):
+    """Convert reduced length r to mean c-axis projected length l_c.
+
+    Parameters
+    ----------
+    r : float (or numpy array of floats)
+            reduced length (unitless)
+    dpar : float
+        Etch figure length (micrometers) for the apatite
+    constants : dictionary   
+        Dictionary of constants associated with annealing model being used
+        (default: KETCHAM_99_FC)
+
+    Returns
+    -------
+        Float or numpy array of floats containing mean c-axis projected 
+        length(s) (micrometers) corresponding to each r value
+
+    """
+    # Calculate initial c-axis projected fission track length
+    l0 = constants["l_slope"] * dpar + constants["l_intercept"]
+
+    # Calculate current c-axis projected length from reduced and initial lengths
+    l_c = r * l0
+    return l_c
+
+
+def get_l_stdev(l_c):
+    """Get standard deviation of length distribution based on its mean length.
+    
+    This function follows equation from Figure 6b in Ketcham (2005).
+    Assumes lengths are normally distributed around mean.
+
+    Parameters
+    ----------
+    l_c : float (or numpy array of floats)
+        Mean c-axis projected length(s) (micrometers)
+
+    Returns
+    -------
+    float (or numpy array of floats) containing standard deviation(s)
+    (micrometers) corresponding to each l value
+
+    """
+    return 0.010 * l_c * l_c - 0.2827 * l_c + 2.501
+
+
+def calc_weights(tsteps, lamb=1.551e-4):
+    """Calculate weights to apply to length distributions when summing together.
+
+    This function uses Equation 12 in Ketcham (2005) to determine the weights
+    to apply to the length distributions associated with each timestep. These
+    weights are used when summing the length distributions together to
+    create a mixed distribution.
+
+    Parameters
+    ----------
+    tsteps : numpy array of floats with length n, where n > 1
+        Array of times (yrs BP) that each set of fission tracks was produced
+        at. This array should be in descending (i.e., chronological) order. The
+        first time is the start of the first timestep, last time is end of last 
+        timestep.
+    lamb: float
+        Total U238 decay constant (lambda) (Myr^-1) (default: 1.551e-4)
+
+    Returns
+    -------
+    numpy array of floats with length n - 1 containing weights for each timestep
+    
+    """
+    starts = tsteps[:-1] / 1e6  # t2 (Myr)
+    ends = tsteps[1:] / 1e6     # t1 (Myr)
+    return (np.exp(lamb * starts) - np.exp(lamb * ends)) / lamb
+
+
+def combine_dists(means, stdevs, w, make_graph=False, x_num=100):
+    """Calculate weighted sum of normal distributions.
+     
+    This funcion calculates a weighted sum of normal distributions based on 
+    their means and distributions. Disregards means of zero and negative values.
+    Used to create mixed distribution of lengths
+
+    Parameters
+    ----------
+    means : numpy array of floats
+        Means of each distribution
+    stdevs : numpy array of floats
+        Standard deviations of each distribution
+    w : numpy array of floats
+        Weights to apply to each distribution when combining
+    make_graph : bool
+        Boolean indicating whether or not to return x and frequency
+        series for plotting (default: False)
+    x_num : int
+        Nonnegative integer specifying how many x values to use for the 
+        frequency series and internal calculations (default: 100). A value of 
+        at least 50 is recommended for calculating the standard deviation and
+        mean of the mixed distribution; larger values produce smoother curves
+        when plotting the frequency series. 
+
+    Returns
+    -------
+    mean : float
+        Mean of mixed distribution
+    stdev : float
+        Standard deviation of mixed distribution
+    x : numpy array of floats
+        Array of x values. Only returned if make_graph = True
+    freqs : numpy array of floats
+        Array of frequencies at which each x value is observed. 
+        Only returned if make_graph = True
+    """
+    # Removing means of zero and associated weights/stdevs
+    valid_indices = np.where(means > 0)
+    means = means[valid_indices]
+    stdevs = stdevs[valid_indices]
+    w = w[valid_indices]
+
+    # Getting x values to calculate 
+    # Note: Expanding the bounds here has a negligible effect on the mean
+    #       and standard deviation of the resulting length distribution for
+    #       any of the tests from Ketcham (2005)
+    x_lower = max(np.min(means) - np.max(stdevs) * 2, 0)
+    x_upper = np.max(means) + np.max(stdevs) * 2
+    x = np.linspace(x_lower, x_upper, x_num)
+    
+    # Transposing x so norm.pdf broadcasts correctly
+    x_grid = x[:, np.newaxis]
+
+    # Getting distributions
+    dists = norm.pdf(x_grid, means, stdevs)
+
+    # Summing by weights
+    mixed_dist = np.dot(dists, w)
+
+    # Normalizing
+    mixed_dist /= np.sum(mixed_dist)
+
+    # Finding mean
+    mean = np.dot(x, mixed_dist)
+
+    # Finding stdev
+    var = np.sum(mixed_dist * (x - mean) ** 2)
+    stdev = var ** 0.5
+
+    # Returning relevant values
+    if make_graph:
+        return mean, stdev, x, mixed_dist
+    else:
+        return mean, stdev
+    
+
+def calc_l_dist(r, dpar, tsteps, constants=KETCHAM_99_FC, make_graph=False, 
+                l_num=100):
+    """Calculate length distribution from reduced lengths.
+    
+    This function takes the reduced lengths of fission
+    tracks produced at each timestep, calculates the mean and standard
+    deviation of the length distributions for each timestep, and combines
+    these distributions to find the overall fission track length
+    distribution
+
+    Parameters
+    ----------
+    r : numpy array of floats with length n
+            Reduced lengths of fission tracks produced at each timestep 
+            (unitless)
+    dpar : float
+        Etch figure length (micrometers)
+    tsteps : numpy array of floats with length n + 1
+        Array of times (yrs BP) that each set of fission tracks was produced
+        at. This array should be in descending (i.e., chronological) order. The
+        first time is the start of the first timestep, last time is end of last 
+        timestep.
+    constants : dictionary   
+        Dictionary of constants associated with annealing model being used
+        (default: KETCHAM_99_FC)
+    make_graph : bool
+        Boolean indicating whether or not to return x and frequency
+        series for plotting (default: False)
+    l_num : int
+        Nonnegative integer specifying how many lengths to use for the 
+        frequency series and internal calculations (default: 100). A value of 
+        at least 50 is recommended for calculating the standard deviation and
+        mean of the mixed distribution; larger values produce smoother curves
+        when plotting the frequency series. 
+
+    Returns
+    -------
+    mean : float
+        Mean length of length distribution
+    stdev : float
+        Standard deviation of length distribution
+    x : numpy array of floats
+        Array of lengths. Only returned if make_graph = True
+    freqs : numpy array of floats
+        Array of frequencies at which each length value is observed. 
+        Only returned if make_graph = True
+        
+    """
+    # Get descriptors of each distribution 
+    l_c = l_conversion(r=r, dpar=dpar, constants=constants)
+    stdevs = get_l_stdev(l_c=l_c)
+    w = calc_weights(tsteps=tsteps)
+
+    # Combine distributions
+    results = combine_dists(means=l_c, 
+                            stdevs=stdevs, 
+                            w=w, 
+                            make_graph=make_graph,
+                            x_num=l_num)
+    return results
+
+
+def forward_model_aft(temps, tsteps, dpar, constants=KETCHAM_99_FC, 
+                      get_lengths=False, make_graph=False, l_num=100):
+    """Conduct forward modeling of the apatite fission track system.
+
+    This function runs the forward model of the AFT system from Ketcham (2005)
+    based on given time-temperature series. Calculates thermochronological age
+    and (optionally) mean fission track length
+
+    Parameters
+    ----------
+    temps : numpy array of floats with length n, where n > 1
+        Temperatures (K) at each time in tsteps
+    tsteps : numpy array of floats with length n, where n > 1
+        Array of times (yrs BP) in chronological (descending) order. First 
+        time is start of first timestep, last time is end of last timestep. 
+        Each pair of adjacent times composes a timestep
+    dpar : float
+        Etch figure length (micrometers)
+    constants : dictionary   
+        Dictionary of constants associated with annealing model being used
+        (default: KETCHAM_99_FC)
+    get_lengths: bool
+        Boolean indicating whether or not to also calculate distribution of
+        c-axis projected fission track lengths within an apatite that
+        experienced this time-temperature history
+    make_graph : bool
+        Boolean indicating whether or not to return length and frequency
+        series for plotting length distribution (default: False). Only relevant
+        if get_lengths is True.
+    l_num : int
+        Nonnegative integer specifying how many lengths to use for the 
+        frequency series and internal calculations (default: 100). A value of 
+        at least 50 is recommended for calculating the standard deviation and
+        mean of the mixed distribution; larger values produce smoother curves
+        when plotting the frequency series. Only relevant if get_lengths is True
+
+    Returns
+    -------
+    If get_lengths is false: age
+        age : float
+            Model age (yrs BP) of apatite that experienced given 
+            time-temperature history
+    If get_lengths is true: (age, (mean, sd, lengths, freqs))
+        age: float
+            Model age (yrs BP) of apatite that experienced given 
+            time-temperature history
+        mean: float
+            Mean length of full length distribution
+        stdev: float
+            Standard deviation of full length distribution
+        lengths: numpy array of floats
+            Array of lengths (micronmeters)
+            Only returned if make_graph = True
+        freqs: numpy array of floats
+            Array of frequencies with which each length is expected to be
+            measured
+            Only returned if make_graph = True
+    """
+    # Getting average temperatures for each interval
+    avg_temps = np.convolve(temps, np.ones(2), 'valid') / 2.
+    # Setting up r arrray
+    r = np.full(shape=np.size(avg_temps), fill_value=np.nan)
+    
+    # Calculate annealing for each timestep
+    for i in range(0, len(avg_temps)):
+        r = calc_annealing(r_initial=r, 
+                           constants=constants, 
+                           temperature=avg_temps[i], 
+                           start=tsteps[i],
+                           end=tsteps[i + 1], 
+                           next_nan_index=i)
+        
+    # Adjusting based on Dpar
+    r = dpar_conversion(r_mr=r, dpar=dpar, constants=constants)
+
+    # Calculating final age/length distribution
+    if get_lengths:
+        return (calc_aft_age(r_final=r, tsteps=tsteps), 
+                calc_l_dist(r=r, 
+                            dpar=dpar, 
+                            tsteps=tsteps,
+                            constants=constants,
+                            make_graph=make_graph,
+                            l_num=l_num))
+    else:
+        return calc_aft_age(r_final=r, tsteps=tsteps)
