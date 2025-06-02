@@ -267,3 +267,46 @@ def dpar_conversion(r_mr, Dpar, constants=KETCHAM_99_FC):
 
     # Returning r_lr
     return base ** kappa
+
+
+def r_to_rho(r):
+    """Convert final reduced lengths to fission track densities.
+
+    This function uses Equation 13 from Ketcham (2005).
+
+    Parameters
+    ----------
+    r : numpy array of floats
+        mean reduced lengths (unitless) of fission tracks for the specific
+        apatite for each *point* on the apatite's time-temperature path. These 
+        values should already be converted to account for Dpar variations.
+
+    Returns
+    -------
+    numpy array of normalized fission track densities corresponding to each 
+    *interval* on the time-temperature path. Any reduced lengths below 0.13 
+    can't be observed, so for intervals with a mean reduced length below 0.13,
+    their corresponding fission track densities are set to 0.
+    
+    """
+    # Adding in r = 1 for FTs formed in the present
+    r = np.append(r, np.array(1))
+
+    # Using the r's at the midpoint between timesteps
+    # Done following Ketcham 2000 to prevent bias toward younger ages
+    midpoints = (r[1:] + r[:-1]) / 2
+
+    # Calculating densities following Equation 13 of Ketcham (2005)
+    # r >= 0.765 case (Equation 13a)
+    rho = 1.600 * midpoints - 0.600
+
+    # r < 0.765 case (Equation 13b)
+    low_indices = np.where(midpoints < 0.765)       
+    rho[low_indices] = (9.205 * (midpoints[low_indices] ** 2) - 
+                        9.157 * midpoints[low_indices] + 2.269)
+    
+    # r below 0.13 can't be observed and are effectively 0
+    zero_indices = np.where(midpoints < 0.13)
+    rho[zero_indices] = 0
+    
+    return rho
