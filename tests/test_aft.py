@@ -177,3 +177,25 @@ def test_r_to_rho():
     assert aft.r_to_rho(np.array([0., 0., 0.1, 0.73, 0.8, 1.])) == \
         pytest.approx(np.array([0., 0., 0.054176125, 0.624, 0.84, 1.]))
     
+
+def test_calc_aft_age():
+    """Unit tests for calc_aft_age."""
+    # Test when no annealing occurs
+    assert aft.calc_aft_age(r_final=np.array([1., 1.]),
+                            tsteps=np.array([0.893, 0.4, 0.])) == 1.
+    
+    # Test when len(r_final) == 1
+    assert aft.calc_aft_age(r_final=np.array([0.8]),
+                            tsteps=np.array([1., 0.]),
+                            rho_st=0.84) == pytest.approx(1.)
+    
+    # Test when len(r_final) != 1, some annealing occurs, and age != 0
+    assert aft.calc_aft_age(r_final=np.array([0.8, 0.9]),
+                            tsteps=np.array([30., 20., 0.]),
+                            rho_st=1.) == pytest.approx(26.)
+    
+    # Test when r = 0
+    assert aft.calc_aft_age(r_final=np.array([0.]),
+                            tsteps=np.array([30., 0.])) == pytest.approx(0.)
+    
+    
