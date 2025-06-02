@@ -163,5 +163,17 @@ def test_dpar_conversion():
     assert aft.dpar_conversion(r_mr=np.array([0.625, 0.5, 0.2, 0.]),
                                Dpar=TEST_DPAR) == \
         pytest.approx(np.array([0.5, 0., 0., 0.]), abs=1e-6)
+    
 
+def test_r_to_rho():
+    """Unit tests for r_to_rho."""
+    # Test that r_to_rho works for the following cases:
+    #   r = 0
+    #   0 < r < 0.13
+    #   r < 0.765
+    #   r = 0.765
+    #   r > 0.765
+    #   r = 1
+    assert aft.r_to_rho(np.array([0., 0., 0.1, 0.73, 0.8, 1.])) == \
+        pytest.approx(np.array([0., 0., 0.054176125, 0.624, 0.84, 1.]))
     
