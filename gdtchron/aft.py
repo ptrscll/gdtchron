@@ -559,10 +559,16 @@ def calc_l_dist(r, dpar, tsteps, constants=KETCHAM_99_FC, make_graph=False,
 
     Returns
     -------
-    results : tuple
-        Tuple containing values pertaining to the length distribution, formatted
-        following the output of combine_dists. Following combine_dists, the size
-        and content of this tuple vary depending on the value of make_graph.
+    results : tuple containing the following values:
+        mean : float
+            Mean of mixed distribution
+        stdev : float
+            Standard deviation of mixed distribution
+        l_c (optional) : numpy array of floats
+            Array of length values. Only returned if make_graph = True
+        freqs (optional) : numpy array of floats
+            Array of frequencies at which each x value is observed. 
+            Only returned if make_graph = True
         
     """
     # Get descriptors of each distribution 
@@ -617,15 +623,19 @@ def forward_model_aft(temps, tsteps, dpar, constants=KETCHAM_99_FC,
 
     Returns
     -------
-    If get_lengths is false:
+    final_results : tuple containing the following values:
         age : float
             Model age (yrs BP) of apatite that experienced the given 
-            time-temperature history
-    If get_lengths is true:
-        final_results : tuple
-            tuple containing a float with the model age (yrs BP) of an apatite
-            that experienced the given time-temperature history and the results
-            tuple describing the length distribution produced by calc_l_dist.
+            time-temperature history. If get_lengths is False, only age is
+            returned.
+        length_results (optional) : tuple
+            Tuple describing the length distribution produced by calc_l_dist.
+            Only included if get_lengths is True.
+            Contains (in order) the mean (float) and standard deviation 
+            (float) of the distribution. Optionally includes
+            lengths (numpy array of floats) and frequencies at which
+            each length occurs in the distribution (numpy array of floats)
+            if make_graph is also True.
     """
     # Getting average temperatures for each interval
     avg_temps = np.convolve(temps, np.ones(2), 'valid') / 2.
