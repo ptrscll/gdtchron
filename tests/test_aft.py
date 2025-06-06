@@ -40,16 +40,20 @@ def test_g():
 def test_f():
     """Unit tests for f (right-hand side of main annealing equation)."""
     # Confirm NaNs stay NaN
-    assert np.isnan(aft.f(temperature=450., t=np.nan))
+    assert np.isnan(aft.f(temperature=450., time_annealed=np.nan))
 
     # Confirm calculations performed properly for np array
     # Using Ketcham et al. (1999) fanning curvilinear model:
-    assert aft.f(temperature=450, t=np.array([np.nan, 1e10, 1e11]))[1:] == \
-            pytest.approx(np.array([-0.971615, -0.386586]))
-    assert np.isnan(aft.f(temperature=450, t=np.array([np.nan, 0.9, 0.1]))[0])
+    assert aft.f(temperature=450, 
+                 time_annealed=np.array([np.nan, 1e10, 1e11]))[1:] == \
+                    pytest.approx(np.array([-0.971615, -0.386586]))
+    assert np.isnan(aft.f(temperature=450, 
+                          time_annealed=np.array([np.nan, 0.9, 0.1]))[0])
 
     # Confirm calculations work for dummy constants
-    assert aft.f(temperature=np.e, t=np.e ** 2, constants=TEST_CONSTS) == 0.
+    assert aft.f(temperature=np.e, 
+                 time_annealed=np.e ** 2, 
+                 constants=TEST_CONSTS) == 0.
 
 
 def test_get_equiv_time():
@@ -64,7 +68,7 @@ def test_get_equiv_time():
     
     # Confirming that Equation 5 of Ketcham (2005) still holds
     assert aft.g(np.array([0.9, 0.1])) == \
-        pytest.approx(aft.f(temperature=450., t=equiv_times))
+        pytest.approx(aft.f(temperature=450., time_annealed=equiv_times))
 
     # Confirm calculations work for dummy constants
     assert aft.get_equiv_time(np.array([0.5]), 
@@ -83,17 +87,19 @@ def test_get_next_r():
     
     # Confirming that Equation 5 of Ketcham (2005) still holds
     assert aft.g(rs) == pytest.approx(aft.f(temperature=450., 
-                                            t=np.array([1e10, 1e11])))
+                                            time_annealed=np.array([1e10, 
+                                                                    1e11])))
 
     # Confirm calculations work for dummy constants
     assert aft.get_next_r(temperature=np.e, 
-                          cumulative_t=np.e ** 2, 
+                          time_annealed=np.e ** 2, 
                           constants=TEST_CONSTS) == 0.5
     
     # Confirm code works for fully annealed tracks
     assert aft.get_next_r(temperature=550., 
-                          cumulative_t=np.array([1.87165e19])) == np.array([0.])
-    assert aft.get_next_r(temperature=550., cumulative_t=np.array([1e21])) == \
+                          time_annealed=np.array([1.87165e19])) == \
+                            np.array([0.])
+    assert aft.get_next_r(temperature=550., time_annealed=np.array([1e21])) == \
         np.array([0.])
     
 
