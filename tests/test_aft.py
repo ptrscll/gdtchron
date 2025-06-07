@@ -236,12 +236,14 @@ def test_get_l_stdev():
 
 def test_calc_weights():
     """Unit tests for calc_weights."""
-    # Test array of length 2
-    assert aft.calc_weights(np.array([1e6 * np.log(5), 0]), 
-                            lamb=1) == pytest.approx(np.array([4.]))
-    # Test longer array
-    assert aft.calc_weights(1e10 * np.array([np.log(5), np.log(2), 0]), 
-                            lamb=1e-4) == pytest.approx(np.array([3e4, 1e4]))
+    # Test smallest possible arrays
+    assert aft.calc_weights(r=np.array([0.5]), 
+                            tsteps=np.array([1e6 * np.log(5), 0]), 
+                            lamb=1) == pytest.approx(np.array([2.31625]))
+    # Test longer arrays (including with un-annealed tracks)
+    assert aft.calc_weights(r=np.array([0.6, 1.]),
+                            tsteps=1e10 * np.array([np.log(5), np.log(2), 0]), 
+                            lamb=1e-4) == pytest.approx(np.array([2.04e4, 1e4]))
 
 
 def test_combine_dists():
@@ -314,7 +316,7 @@ def test_calc_l_dist():
                                          constants=TEST_CONSTS,
                                          l_num=150)
     
-    assert mean == pytest.approx(61. / 4., rel=1e-2)
+    assert mean == pytest.approx(15.27, rel=1e-3)
     assert sd < 0.674733     # What stdev would be if we didn't cut of dists
     assert sd == pytest.approx(0.674733, rel=1e-1)
     assert x[0] == pytest.approx(15. - 0.5378 * 2)
@@ -327,6 +329,10 @@ def test_forward_model_aft():
     
     The time-temperature series for these tests are taken from Ketcham (2005)
     Figure 7, and the comparison data comes from HeFTy v1.9.3.
+
+    Since length distributions standard deviations don't align super nicely
+    between this model and HeFTy, these tests only compare means and modes of 
+    the length distributions.
     """
     # Figure 7a (Fast Cooling)
     # Creating time and temperature series
