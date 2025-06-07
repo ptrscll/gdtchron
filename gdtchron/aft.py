@@ -417,17 +417,21 @@ def get_l_stdev(l_c):
     return 0.010 * l_c * l_c - 0.2827 * l_c + 2.501
 
 
-def calc_weights(tsteps, lamb=1.551e-4):
+def calc_weights(r, tsteps, lamb=1.551e-4):
     """Calculate weights to apply to length distributions when summing together.
 
-    This function uses Equation 12 in Ketcham (2005) to determine the weights
-    to apply to the length distributions associated with each timestep. These
-    weights are used when summing the length distributions together to
+    This function uses Equations 12 and 13 in Ketcham (2005) to determine the 
+    weights to apply to the length distributions associated with each timestep. 
+    These weights are used when summing the length distributions together to
     create a mixed distribution.
 
     Parameters
     ----------
-    tsteps : numpy array of floats with length n, where n > 1
+    r : numpy array of floats with length n
+        Mean reduced lengths (unitless) of fission tracks produced at each 
+        point on the apatite's time-temperature path. These values should 
+        already be converted to account for dpar variations.
+    tsteps : numpy array of floats with length n + 1, where n > 1
         Array of times (yrs BP) that each set of fission tracks was produced
         at. This array should be in descending (i.e., chronological) order. The
         first time is the start of the first timestep, last time is end of last 
@@ -437,13 +441,16 @@ def calc_weights(tsteps, lamb=1.551e-4):
 
     Returns
     -------
-    numpy array of floats with length n - 1:
+    numpy array of floats with length n:
         Weights for each timestep
     
     """
     starts = tsteps[:-1] / 1e6  # t2 (Myr)
     ends = tsteps[1:] / 1e6     # t1 (Myr)
-    return (np.exp(lamb * starts) - np.exp(lamb * ends)) / lamb
+    w1 = (np.exp(lamb * starts) - np.exp(lamb * ends)) / lamb
+    w2 = r_to_rho(r)
+    w = w1 * w2
+    return w
 
 
 def combine_dists(means, stdevs, w, make_graph=False, x_num=100):
@@ -575,7 +582,7 @@ def calc_l_dist(r, dpar, tsteps, constants=KETCHAM_99_FC, make_graph=False,
     # Get descriptors of each distribution 
     l_c = l_conversion(r=r, dpar=dpar, constants=constants)
     stdevs = get_l_stdev(l_c=l_c)
-    w = calc_weights(tsteps=tsteps)
+    w = calc_weights(r=r, tsteps=tsteps)
 
     # Combine distributions
     results = combine_dists(means=l_c, 
