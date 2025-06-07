@@ -330,9 +330,12 @@ def test_forward_model_aft():
     The time-temperature series for these tests are taken from Ketcham (2005)
     Figure 7, and the comparison data comes from HeFTy v1.9.3.
 
-    Since length distributions standard deviations don't align super nicely
-    between this model and HeFTy, these tests only compare means and modes of 
-    the length distributions.
+    These tests compare ages and means, standard deviations, and modes of 
+    the length distributions. Modes may be off by an index because the
+    discretization of the lengths varies between HeFTy and our model.
+    Standard deviations tend to align less well between models, so the
+    tolerance on most tests is more generous for standard deviations than
+    for means.
     """
     # Figure 7a (Fast Cooling)
     # Creating time and temperature series
@@ -348,12 +351,17 @@ def test_forward_model_aft():
     tsteps = np.concatenate((initial_tsteps, second_tsteps), axis=None)
     tsteps *= 1e6
 
-    age, len_data = aft.forward_model_aft(temps, tsteps, 1.75, get_lengths=True)
+    age, (mean, stdev, l_c, freqs) = aft.forward_model_aft(temps, 
+                                                           tsteps, 
+                                                           dpar=1.75, 
+                                                           get_lengths=True, 
+                                                           make_graph=True)
 
-    assert age == pytest.approx(89.4, rel=5e-3)
-    assert len_data[0] == pytest.approx(15.03, rel=5e-3)  # Mean length
-    # Length Stdev does NOT line up as nicely, so there's no test for it at the 
-    # moment
+    assert age == pytest.approx(89.4, rel=5e-3)             # Age
+    # Stdevs do not align well for this test, so they're skipped here
+    assert mean == pytest.approx(15.03, rel=5e-3)           # Mean length
+    assert np.argmax(freqs) == pytest.approx(np.argmin(np.abs(l_c - 15.)),
+                                             abs=1)         # Mode length
 
     # Figure 7b (Constant Cooling)
     temps = np.linspace(190.1, 20, 500, endpoint=True)
@@ -362,8 +370,17 @@ def test_forward_model_aft():
     tsteps = np.linspace(93, 0, 500, endpoint=True)
     tsteps *= 1e6
 
-    age = aft.forward_model_aft(temps, tsteps, 1.75)
-    assert age == pytest.approx(39.8, rel=5e-3)
+    age, (mean, stdev, l_c, freqs) = aft.forward_model_aft(temps, 
+                                                           tsteps, 
+                                                           dpar=1.75, 
+                                                           get_lengths=True, 
+                                                           make_graph=True)
+
+    assert age == pytest.approx(39.8, rel=5e-3)             # Age
+    assert mean == pytest.approx(14.24, rel=5e-3)           # Mean length
+    assert stdev == pytest.approx(1.35, rel=0.1)            # Length stdev
+    assert np.argmax(freqs) == pytest.approx(np.argmin(np.abs(l_c - 14.75)),
+                                             abs=1)         # Mode length
 
     # Figure 7c (Reheating)
     first_temps = np.linspace(190.1, 19.8, 11 * 5, endpoint=False)
@@ -381,8 +398,17 @@ def test_forward_model_aft():
                             axis=None)
     tsteps *= 1e6
 
-    age = aft.forward_model_aft(temps, tsteps, 1.75)
-    assert age == pytest.approx(63.3, rel=5e-3)
+    age, (mean, stdev, l_c, freqs) = aft.forward_model_aft(temps, 
+                                                           tsteps, 
+                                                           dpar=1.75, 
+                                                           get_lengths=True, 
+                                                           make_graph=True)
+
+    assert age == pytest.approx(63.3, rel=5e-3)             # Age
+    assert mean == pytest.approx(13.38, rel=5e-3)           # Mean length
+    assert stdev == pytest.approx(1.56, rel=0.1)            # Length stdev
+    assert np.argmax(freqs) == pytest.approx(np.argmin(np.abs(l_c - 12.125)),
+                                             abs=1)         # Mode length
 
     # Figure 7d (Cooling at varying rates with 2 Dpar values)
     initial_temps = np.linspace(190.1, 121.7, 13 * 5, endpoint=False)
@@ -401,9 +427,30 @@ def test_forward_model_aft():
                             axis=None)
     tsteps *= 1e6
 
-    # Testing for Dpar=1.75 and Dpar=2.50
-    age = aft.forward_model_aft(temps, tsteps, 1.75)
-    assert age == pytest.approx(13.0, abs=0.25)
+    age, (mean, stdev, l_c, freqs) = aft.forward_model_aft(temps, 
+                                                           tsteps, 
+                                                           dpar=1.75, 
+                                                           get_lengths=True, 
+                                                           make_graph=True)
 
+    assert age == pytest.approx(13.0, abs=0.25)             # Age
+    assert mean == pytest.approx(13.95, rel=5e-3)           # Mean length
+    assert stdev == pytest.approx(1.70, rel=5e-2)           # Length stdev
+    assert np.argmax(freqs) == pytest.approx(np.argmin(np.abs(l_c - 14.875)),
+                                             abs=1)         # Mode length
+
+    age, (mean, stdev, l_c, freqs) = aft.forward_model_aft(temps, 
+                                                           tsteps, 
+                                                           dpar=2.50, 
+                                                           get_lengths=True, 
+                                                           make_graph=True)
+
+    assert age == pytest.approx(51.1, rel=1.1e-2)           # Age
+    assert mean == pytest.approx(12.91, rel=5e-3)           # Mean length
+    assert stdev == pytest.approx(1.52, rel=5e-2)           # Length stdev
+    assert np.argmax(freqs) == pytest.approx(np.argmin(np.abs(l_c - 12.375)),
+                                             abs=1)         # Mode length
+
+    # Testing not getting length distributions
     age = aft.forward_model_aft(temps, tsteps, 2.50)
     assert age == pytest.approx(51.1, rel=1.1e-2)
