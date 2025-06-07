@@ -193,17 +193,17 @@ def test_calc_aft_age():
     """Unit tests for calc_aft_age."""
     # Test when no annealing occurs
     assert aft.calc_aft_age(r_final=np.array([1., 1.]),
-                            tsteps=np.array([0.893, 0.4, 0.])) == 1.
+                            tsteps=np.array([0.893, 0.4, 0.])) == 1e-6
     
     # Test when len(r_final) == 1
     assert aft.calc_aft_age(r_final=np.array([0.8]),
                             tsteps=np.array([1., 0.]),
-                            rho_st=0.84) == pytest.approx(1.)
+                            rho_st=0.84) == pytest.approx(1e-6)
     
     # Test when len(r_final) != 1, some annealing occurs, and age != 0
     assert aft.calc_aft_age(r_final=np.array([0.8, 0.9]),
                             tsteps=np.array([30., 20., 0.]),
-                            rho_st=1.) == pytest.approx(26.)
+                            rho_st=1.) == pytest.approx(26e-6)
     
     # Test when r = 0
     assert aft.calc_aft_age(r_final=np.array([0.]),
@@ -344,7 +344,7 @@ def test_forward_model_aft():
 
     age, len_data = aft.forward_model_aft(temps, tsteps, 1.75, get_lengths=True)
 
-    assert age / 1e6 == pytest.approx(89.4, rel=5e-3)
+    assert age == pytest.approx(89.4, rel=5e-3)
     assert len_data[0] == pytest.approx(15.03, rel=5e-3)  # Mean length
     # Length Stdev does NOT line up as nicely, so there's no test for it at the 
     # moment
@@ -357,7 +357,7 @@ def test_forward_model_aft():
     tsteps *= 1e6
 
     age = aft.forward_model_aft(temps, tsteps, 1.75)
-    assert age / 1e6 == pytest.approx(39.8, rel=5e-3)
+    assert age == pytest.approx(39.8, rel=5e-3)
 
     # Figure 7c (Reheating)
     first_temps = np.linspace(190.1, 19.8, 11 * 5, endpoint=False)
@@ -376,7 +376,7 @@ def test_forward_model_aft():
     tsteps *= 1e6
 
     age = aft.forward_model_aft(temps, tsteps, 1.75)
-    assert age / 1e6 == pytest.approx(63.3, rel=5e-3)
+    assert age == pytest.approx(63.3, rel=5e-3)
 
     # Figure 7d (Cooling at varying rates with 2 Dpar values)
     initial_temps = np.linspace(190.1, 121.7, 13 * 5, endpoint=False)
@@ -397,7 +397,7 @@ def test_forward_model_aft():
 
     # Testing for Dpar=1.75 and Dpar=2.50
     age = aft.forward_model_aft(temps, tsteps, 1.75)
-    assert age / 1e6 == pytest.approx(13.0, abs=0.25)
+    assert age == pytest.approx(13.0, abs=0.25)
 
     age = aft.forward_model_aft(temps, tsteps, 2.50)
-    assert age / 1e6 == pytest.approx(51.1, rel=1.1e-2)
+    assert age == pytest.approx(51.1, rel=1.1e-2)
