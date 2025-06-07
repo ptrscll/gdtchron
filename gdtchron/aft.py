@@ -350,7 +350,7 @@ def calc_aft_age(r_final, tsteps, rho_st=0.893):
     Returns
     -------
     float:
-        AFT age (yrs BP)
+        AFT age (Myrs BP)
     
     """
     # Calculate FT densities via Equation 13
@@ -361,7 +361,8 @@ def calc_aft_age(r_final, tsteps, rho_st=0.893):
 
     # Calculate ages from densities via Equation 14 
     # Also ensure age can't be negative
-    return max(np.sum(rho * delta_t) / rho_st, 0)
+    # Division by 1e6 converts from yrs to Myrs
+    return max(np.sum(rho * delta_t) / rho_st, 0) / 1e6
 
 ################################
 # Length Calculation Functions #
@@ -623,19 +624,17 @@ def forward_model_aft(temps, tsteps, dpar, constants=KETCHAM_99_FC,
 
     Returns
     -------
-    final_results : tuple containing the following values:
-        age : float
-            Model age (yrs BP) of apatite that experienced the given 
-            time-temperature history. If get_lengths is False, only age is
-            returned.
-        length_results (optional) : tuple
-            Tuple describing the length distribution produced by calc_l_dist.
-            Only included if get_lengths is True.
-            Contains (in order) the mean (float) and standard deviation 
-            (float) of the distribution. Optionally includes
-            lengths (numpy array of floats) and frequencies at which
-            each length occurs in the distribution (numpy array of floats)
-            if make_graph is also True.
+    age : float
+        Model age (Myrs BP) of apatite that experienced the given 
+        time-temperature history. If get_lengths is False, only age is
+        returned.
+    length_results (optional) : tuple
+        Tuple describing the length distribution produced by calc_l_dist.
+        Only included if get_lengths is True.
+        Contains (in order) the mean (float) and standard deviation 
+        (float) of the distribution. If make_graph is also true, includes
+        lengths (numpy array of floats) and frequencies at which
+        each length occurs in the distribution (numpy array of floats)
     """
     # Getting average temperatures for each interval
     avg_temps = np.convolve(temps, np.ones(2), 'valid') / 2.
