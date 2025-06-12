@@ -61,4 +61,29 @@ def test_u_th_ppm_to_molg():
     assert u238_molg == 137.88e-6 / 238.
     assert u235_molg == 1e-6 / 235.
     assert th_molg == 1e-6
+
+
+def test_calc_he_production_rate():
+    """Unit tests for calc_he_production_rate."""
+    # Make sure rates are correct when only one kind of isotope present
+    assert he.calc_he_production_rate(u238_molg=0.001, 
+                                      u235_molg=0., 
+                                      th_molg=0.) == pytest.approx(1.241e-12)
+    assert he.calc_he_production_rate(u238_molg=0., 
+                                      u235_molg=0.0005, 
+                                      th_molg=0.) == pytest.approx(3.446e-12)
+    assert he.calc_he_production_rate(u238_molg=0., 
+                                      u235_molg=0., 
+                                      th_molg=0.005) == pytest.approx(1.480e-12)
+    
+    # Test rates when all isotopes present
+    assert he.calc_he_production_rate(u238_molg=0.001, 
+                                      u235_molg=0.0005, 
+                                      th_molg=0.005) == pytest.approx(6.167e-12)
+    
+
+def test_calc_node_positions():
+    """Unit test for calc_node_positions."""
+    assert he.calc_node_positions(node_spacing=0.1, radius=0.75) == \
+        pytest.approx(np.array([0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65]))
     
