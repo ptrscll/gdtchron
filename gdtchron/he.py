@@ -28,6 +28,12 @@ SYSTEM_PARAMS = {'AHe': {'freq_factor': 50e8 * 3.154e7,  # micrometers^2 / yr
                          'R_235U': 18.05,
                          'R_232Th': 18.43}}
 
+# Half lives (yr)
+U238_HALF_LIFE = 4.468e9
+U235_HALF_LIFE = 7.04e8
+TH232_HALF_LIFE = 1.40e10
+
+# Misc constants
 IDEAL_GAS_CONST = 8.3144598  # (J * K^-1 * mol^-1)
 U238_PER_U235 = 137.88  # Number of U-238 atoms for every U-235 atom (unitless)
 
@@ -153,3 +159,112 @@ def u_th_ppm_to_molg(u_ppm, th_ppm):
     th_molg = th_ppm * 1e-6 / 232
 
     return (u238_molg, u235_molg, th_molg)
+
+
+def calc_he_production_rate(u238_molg, u235_molg, th_molg):
+    """Calculate instantaneous He production rate as a function of U and Th.
+
+    Parameters
+    ----------
+    u238_molg : float
+        U238 (mol / g)
+    u235_molg : float
+        U235 (mol / g)
+    th_molg : float
+        Th232 (mol / g)
+
+    Returns
+    -------
+    he_production : float
+        He production (mol * g^-1 * yr^-1)
+
+    """
+    lambda238 = np.log(2) / U238_HALF_LIFE    # 1 / yr
+    lambda235 = np.log(2) / U235_HALF_LIFE    # 1 / yr
+    lambda232 = np.log(2) / TH232_HALF_LIFE   # 1 / yr
+    
+    term238 = 8 * lambda238 * u238_molg     # mol * g^-1 * yr^-1
+    term235 = 7 * lambda235 * u235_molg     # mol * g^-1 * yr^-1
+    term232 = 6 * lambda232 * th_molg       # mol * g^-1 * yr^-1
+    
+    he_production = term238 + term235 + term232  # mol * g^-1 * yr^-1
+    
+    return he_production
+
+
+def calc_node_positions(node_spacing, radius):
+    """Calculate node positions given spacing and radius.
+    
+    Follows Ketcham (2005); see Figure 8 for an example. The first
+    node is a half-spacing away from the center and the last node is a
+    full spacing away from the edge of the grain.
+
+    Parameters
+    ----------
+    node_spacing : float
+        Distance between nodes in the crystal (micrometers)
+    radius : float
+        Radius of the grain (micrometers)  
+    
+    Returns
+    -------
+    node_positions : NumPy array of floats
+        Radial positions of each modeled node (micrometers)
+
+    """
+    node_positions = np.arange(node_spacing / 2, radius, node_spacing)
+    
+    return node_positions
+
+
+def sum_he_shells(x, node_positions, radius):
+    """Sum He produced within all nodes of the modeled crystal.
+    
+    Uses substition for He concentration after Ketcham (2005). Converts radial 
+    profile of He to system of shells, so He is weighted by volume of shell.
+
+    Parameters
+    ----------
+    x : NumPy array of floats
+        Matrix x solved for using matrices A and B after Ketcham (2005). 
+        Equivalent to the concentration times the node position. 
+        In Ketcham (2005), this variable is referred to as u, but x is used here
+        to distinguish this variable from the uranium-related variables.
+    node_positions : NumPy array of floats
+        Radial positions of each modeled node (um)
+    radius : float
+        Radius of the grain (um)
+
+    Returns
+    -------
+    He_molg : float
+        Total amount (mol/g) of He within the modeled crystal.
+    v : NumPy array
+        Radial profile of He (mol/g)
+
+    """
+    # Back-substitute u=vr to get radial profile
+    v = x / node_positions
+    
+    # Get volumes of spheres at each node
+    sphere_volumes = node_positions ** 3 * (4 * np.pi / 3)
+    
+    # Get total volume of the sphere
+    total_volume = radius ** 3 * (4 * np.pi / 3)
+    
+    # Calculate volumes for the shell corresponding to each node
+    shell_volumes = np.empty(sphere_volumes.size)
+    
+    shell_volumes[0] = sphere_volumes[0]
+    shell_volumes[1:] = np.diff(sphere_volumes)
+    
+    # Get shell as fraction of total volume
+    shell_fraction = shell_volumes / total_volume
+    
+    # Scale He within radial profile by shell fraction
+    v_shells = v * shell_fraction
+    
+    # Integrate weighted radial profile
+    he_molg = romb(v_shells)
+
+    return (he_molg, v)
