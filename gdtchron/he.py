@@ -33,6 +33,11 @@ U238_HALF_LIFE = 4.468e9
 U235_HALF_LIFE = 7.04e8
 TH232_HALF_LIFE = 1.40e10
 
+# Decay constants (1 / yr)
+LAMBDA_U238 = np.log(2) / U238_HALF_LIFE
+LAMBDA_U235 = np.log(2) / U235_HALF_LIFE
+LAMBDA_TH232 = np.log(2) / TH232_HALF_LIFE
+
 # Misc constants
 IDEAL_GAS_CONST = 8.3144598  # (J * K^-1 * mol^-1)
 U238_PER_U235 = 137.88  # Number of U-238 atoms for every U-235 atom (unitless)
@@ -179,13 +184,9 @@ def calc_he_production_rate(u238_molg, u235_molg, th_molg):
         He production (mol * g^-1 * yr^-1)
 
     """
-    lambda238 = np.log(2) / U238_HALF_LIFE    # 1 / yr
-    lambda235 = np.log(2) / U235_HALF_LIFE    # 1 / yr
-    lambda232 = np.log(2) / TH232_HALF_LIFE   # 1 / yr
-    
-    term238 = 8 * lambda238 * u238_molg     # mol * g^-1 * yr^-1
-    term235 = 7 * lambda235 * u235_molg     # mol * g^-1 * yr^-1
-    term232 = 6 * lambda232 * th_molg       # mol * g^-1 * yr^-1
+    term238 = 8 * LAMBDA_U238 * u238_molg     # mol * g^-1 * yr^-1
+    term235 = 7 * LAMBDA_U235 * u235_molg     # mol * g^-1 * yr^-1
+    term232 = 6 * LAMBDA_TH232 * th_molg      # mol * g^-1 * yr^-1
     
     he_production = term238 + term235 + term232  # mol * g^-1 * yr^-1
     
@@ -231,13 +232,13 @@ def sum_he_shells(x, node_positions, radius):
         In Ketcham (2005), this variable is referred to as u, but x is used here
         to distinguish this variable from the uranium-related variables.
     node_positions : NumPy array of floats
-        Radial positions of each modeled node (um)
+        Radial positions of each modeled node (micrometers)
     radius : float
-        Radius of the grain (um)
+        Radius of the grain (micrometers)
 
     Returns
     -------
-    He_molg : float
+    he_molg : float
         Total amount (mol/g) of He within the modeled crystal.
     v : NumPy array
         Radial profile of He (mol/g)
@@ -268,3 +269,77 @@ def sum_he_shells(x, node_positions, radius):
     he_molg = romb(v_shells)
 
     return (he_molg, v)
+
+
+def calc_age(he_molg, u238_molg, u235_molg, th_molg):
+    """Calculate (U-Th)/He age from U, Th, and He concentrations.
+
+    Uses Equation 15 from Ketcham (2005).
+    Note that no alpha correction is applied here. Instead, the alpha 
+    correction is applied to the amounts of each parent isotope fed into 
+    this function, following Ketcham et al. (2011).
+
+    Parameters
+    ----------
+    he_molg : float
+        Amount of He (mol/g)
+    u238_molg : float
+        Amount of U238 (mol/g)
+    u235_molg : float
+        Amount of U235 (mol/g)
+    th_molg : float
+        Amount of Th232 (mol/g)
+
+    Returns
+    -------
+    age_ma : float
+        Calculated (U-Th)/He age (Ma)
+
+    """        
+    ageterm_238 = 8 * u238_molg
+    ageterm_235 = 7 * u235_molg
+    ageterm_232 = 6 * th_molg
+    
+    def age_equation(t):
+        root = (
+            ageterm_238 * (np.exp(LAMBDA_U238 * t) - 1)
+            + ageterm_235 * (np.exp(LAMBDA_U235 * t) - 1)
+            + ageterm_232 * (np.exp(LAMBDA_TH232 * t) - 1) - he_molg
+            ) 
+    
+        return root
+    
+    warnings.filterwarnings('ignore',
+                            'The iteration is not making good progress')
+    
+    age = fsolve(age_equation, 1e6)[0]
+    age_ma = age / 1e6
+    
+    return age_ma
+
+
+def alpha_correction(stopping_distance, radius):
+    """
+    Calculate alpha ejection correction factor, after Ketcham et al. (2011).
+
+    Uses Equation 2 of Ketcham et al. (2011)
+
+    Parameters
+    ----------
+    stopping_distance : float
+        Stopping distance for particular isotopic system (micrometers).
+    radius : float
+        Radius of the grain (micrometers)
+
+    Returns
+    -------
+    tau : float
+        Alpha correction factor (F_T in Ketcham et al. (2011))
+
+    """
+    volume = (4 / 3) * np.pi * radius ** 3
+    surface_area = 4 * np.pi * radius ** 2
+    
+    tau = 1 - 0.25 * ((surface_area * stopping_distance) / volume)
+    
+    return tau
