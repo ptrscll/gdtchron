@@ -87,3 +87,46 @@ def test_calc_node_positions():
     assert he.calc_node_positions(node_spacing=0.1, radius=0.75) == \
         pytest.approx(np.array([0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65]))
     
+
+def test_sum_he_shells():
+    """Unit test for sum_he_shells."""
+    # Get components of x
+    node_positions = he.calc_node_positions(node_spacing=0.1, radius=0.35)
+    v = np.array([0.343, 0.026385, 0.007])
+
+    # Call function
+    he_molg, v_from_fn = he.sum_he_shells(x=node_positions * v, 
+                                          node_positions=node_positions,
+                                          radius=0.35)
+    
+    # Check output
+    assert v == pytest.approx(v_from_fn)
+    assert he_molg == pytest.approx(0.003666706)
+    
+
+def test_calculate_he_age():
+    """Unit tests for calculate_he_age."""
+    # Testing individual isotopes
+    assert he.calc_age(he_molg=0.001,
+                       u238_molg=0.005,
+                       u235_molg=0.00,
+                       th_molg=0.00) == pytest.approx(159.168, abs=1.)
+    assert he.calc_age(he_molg=0.001,
+                       u238_molg=0.00,
+                       u235_molg=0.001,
+                       th_molg=0.00) == pytest.approx(135.622, abs=1.)
+    assert he.calc_age(he_molg=0.001,
+                       u238_molg=0.00,
+                       u235_molg=0.00,
+                       th_molg=0.01) == pytest.approx(333.854, abs=1.)
+    
+    # Testing all three isotopes at once
+    assert he.calc_age(he_molg=0.001,
+                       u238_molg=0.005,
+                       u235_molg=0.001,
+                       th_molg=0.01) == pytest.approx(61.2952, abs=1.)
+
+def test_alpha_correction():
+    """Unit test for alpha_correction."""
+    assert he.alpha_correction(stopping_distance=0.4, 
+                               radius=3.) == pytest.approx(0.90)
