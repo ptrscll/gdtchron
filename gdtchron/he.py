@@ -19,14 +19,14 @@ from scipy.optimize import fsolve
 # and references therein. Stopping distances are from Ketcham et al. (2011).
 SYSTEM_PARAMS = {'AHe': {'freq_factor': 50e8 * 3.154e7,  # micrometers^2 / yr
                          'activ_energy': 138000,        # J * mol^-1
-                         'R_238U': 18.81,  # Stopping distances (micrometers)
-                         'R_235U': 21.80,
-                         'R_232Th': 22.25},
+                         'S_238U': 18.81,  # Stopping distances (micrometers)
+                         'S_235U': 21.80,
+                         'S_232Th': 22.25},
                  'ZHe': {'freq_factor': 0.46e8 * 3.154e7,  # micrometers^2 / yr
                          'activ_energy': 169000,        # J * mol^-1
-                         'R_238U': 15.55,  # Stopping distances (micrometers)
-                         'R_235U': 18.05,
-                         'R_232Th': 18.43}}
+                         'S_238U': 15.55,  # Stopping distances (micrometers)
+                         'S_235U': 18.05,
+                         'S_232Th': 18.43}}
 
 # Half lives (yr)
 U238_HALF_LIFE = 4.468e9
@@ -138,7 +138,7 @@ def calc_beta(diffusivity, node_spacing, time_interval):
 
 
 def u_th_ppm_to_molg(u_ppm, th_ppm):
-    """Convert concentrations of U and Th from ppm to mol/g.
+    """Convert concentrations of U and Th from ppm to mol / g.
 
     Parameters
     ----------
@@ -227,7 +227,8 @@ def sum_he_shells(x, node_positions, radius):
     Parameters
     ----------
     x : NumPy array of floats
-        Matrix x solved for using matrices A and B after Ketcham (2005). 
+        Matrix x (mol * micrometers / g) solved for using Equation 21 from 
+        Ketcham (2005). 
         Equivalent to the concentration times the node position. 
         In Ketcham (2005), this variable is referred to as u, but x is used here
         to distinguish this variable from the uranium-related variables.
@@ -239,9 +240,9 @@ def sum_he_shells(x, node_positions, radius):
     Returns
     -------
     he_molg : float
-        Total amount (mol/g) of He within the modeled crystal.
+        Total amount (mol / g) of He within the modeled crystal.
     v : NumPy array
-        Radial profile of He (mol/g)
+        Radial profile of He (mol / g)
 
     """
     # Back-substitute u=vr to get radial profile
@@ -282,13 +283,13 @@ def calc_age(he_molg, u238_molg, u235_molg, th_molg):
     Parameters
     ----------
     he_molg : float
-        Amount of He (mol/g)
+        Amount of He (mol / g)
     u238_molg : float
-        Amount of U238 (mol/g)
+        Amount of U238 (mol / g)
     u235_molg : float
-        Amount of U235 (mol/g)
+        Amount of U235 (mol / g)
     th_molg : float
-        Amount of Th232 (mol/g)
+        Amount of Th232 (mol / g)
 
     Returns
     -------
@@ -383,4 +384,117 @@ def model_alpha_ejection(node_positions, stopping_distance, radius):
     retained_fractions_edge = np.where(edge_nodes, retained_fractions_all, 1)
     
     return retained_fractions_edge
+
+
+def he_profile(temps, time_interval, system, radius, uth_molg, 
+               node_information, initial_x=None):    
+    """Solve for the helium profile of the grain at the present day.
+    
+    Solves for final x in Equation 21 of Ketcham (2005). Note that
+    in Ketcham (2005), this variable is referred to as u, but x is used here
+    to distinguish this variable from the uranium-related variables.
+
+    Parameters
+    ----------
+    temps : NumPy array
+        List of temperatures (K) for the time-temperature path
+    time_interval : float
+        Time (yr) between each temperature in the time-temperature path.
+    system : string
+        Isotopic system. Current options are 'AHe' and 'ZHe'.
+    radius : float
+        Radius of the grain (micrometers)
+    uth_molg : tuple
+        u238_molg : float
+            The concentration of U238 (mol / g),
+        u235_molg : float
+            The concentration of U235 (mol / g)
+        th_molg : float
+            The concentration of Th (mol / g)
+    node_information : tuple
+        nodes : float
+            Number of nodes to model within the crystal. The default is 513.
+        node_spacing : float
+            Spacing of nodes in the modeled crystal (micrometers)
+        node_positions : NumPy array of floats
+            Radial positions of each modeled node (micrometers)
+    initial_x : NumPy array of floats or None, optional
+        Array containing the initial values for x (mol * micrometers / g). If 
+        all values in the array are np.nan or initial_x is set to None, this 
+        function assumes that the initial values for x are 0 for all nodes 
+        (default: None)
+
+    Returns
+    -------
+    x : NumPy array of floats
+        Matrix x solved for using Equation 21 Ketcham (2005). 
+        Equivalent to the concentration times the node position.
+
+    """ 
+    # Unpack parameters
+    nodes, node_spacing, node_positions = node_information
+    u238_molg, u235_molg, th_molg = uth_molg
+    freq_factor = SYSTEM_PARAMS[system]['freq_factor']
+    activ_energy = SYSTEM_PARAMS[system]['activ_energy']
+    stop_dist_u238 = SYSTEM_PARAMS[system]['S_238U']
+    stop_dist_u235 = SYSTEM_PARAMS[system]['S_235U']
+    stop_dist_th232 = SYSTEM_PARAMS[system]['S_232Th']
+
+    # Modify mol / g of U,Th for alpha ejection
+    u238_alpha = u238_molg * model_alpha_ejection(node_positions,
+                                                  stop_dist_u238,
+                                                  radius)
+    u235_alpha = u235_molg * model_alpha_ejection(node_positions,
+                                                  stop_dist_u235,
+                                                  radius)
+    th_alpha = th_molg * model_alpha_ejection(node_positions,
+                                              stop_dist_th232,
+                                              radius)
+        
+    # Calculate He production based on U and Th, adjusted for alpha ejection.
+    he_production = calc_he_production_rate(u238_alpha, u235_alpha, th_alpha)
+    
+    if initial_x is None or np.all(np.isnan(initial_x)):
+        # Set initial x (u in Ketcham (2005)) equal to 0
+        x = np.zeros(nodes)
+    else:
+        x = initial_x
+    
+    # Loop through each step of the T-t path, solving Equation 21 in Ketcham
+    # (2005) using each temperature
+    for temp in temps:
+        
+        # Use temperature to calculate diffusivity and beta
+        diffusivity = calc_diffusivity(temp, freq_factor, activ_energy)
+        beta = calc_beta(diffusivity, node_spacing, time_interval)
+        
+        # Calculate A (banded) and use current x to calculate new B
+        # (In Equation 21, A represents the coefficients on the lefthand side of
+        # the equation, while B represents the righthand side of the equation)
+        ab = tridiag_banded(1, -2 - beta, 1, nodes)
+        ab[1, 0] = -3 - beta  # To satisfy Neumann condition
+        b = np.zeros(nodes)
+
+        # For first node, use boundary condition (Neumann)
+        b[0] = (
+            x[0] + (2 - beta) * x[0] - x[1]
+            - he_production[0] * node_positions[0] * beta * time_interval
+            )
+        
+        # Use previous and subsequent nodes for remaining nodes
+        b[1:-1] = (
+            -x[0:-2] + (2 - beta) * x[1:-1] - x[2:]
+            - he_production[1:-1] * node_positions[1:-1] * beta * time_interval
+            )           
+        
+        # For last node, use boundary condition (Drichlet)
+        b[-1] = (
+            -x[-2] + (2 - beta) * x[-1] - 0
+            - he_production[-1] * node_positions[-1] * beta * time_interval
+            )
+        
+        # Solve for x using banded A and B
+        x = solve_banded((1, 1), ab, b)
+        
+    return x
 
