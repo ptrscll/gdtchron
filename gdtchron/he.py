@@ -343,3 +343,44 @@ def alpha_correction(stopping_distance, radius):
     tau = 1 - 0.25 * ((surface_area * stopping_distance) / volume)
     
     return tau
+
+
+def model_alpha_ejection(node_positions, stopping_distance, radius):
+    """Model retained fraction of He after alpha ejection.
+
+    Calculations from in-text equations in Ketcham (2005).
+
+    Parameters
+    ----------
+    node_positions : NumPy array
+        Radial positions of each modeled node (micrometers)
+    stopping_distance : float
+        Stopping distance for particular isotopic system (micrometers).
+    radius : float
+        Radius of the grain (micrometers)
+
+    Returns
+    -------
+    retained_fraction_edge : NumPy array
+        Fraction of He retained after alpha ejection for each node position
+
+    """
+    # Find edge nodes based on stopping distance and radius
+    edge_nodes = node_positions >= radius - stopping_distance
+    
+    # Calculate location of the intersection planes for all nodes
+    intersection_planes = (
+        (node_positions ** 2 + radius ** 2 - stopping_distance ** 2) /
+        (2 * node_positions)
+        )
+    
+    # Calculate retained fractions for all nodes hypothetically
+    retained_fractions_all = (
+        0.5 + (intersection_planes - node_positions) / (2 * stopping_distance)
+        )
+    
+    # Only apply retained fraction to edge nodes
+    retained_fractions_edge = np.where(edge_nodes, retained_fractions_all, 1)
+    
+    return retained_fractions_edge
+
