@@ -126,7 +126,31 @@ def test_calculate_he_age():
                        u235_molg=0.001,
                        th_molg=0.01) == pytest.approx(61.2952, abs=1.)
 
+
 def test_alpha_correction():
     """Unit test for alpha_correction."""
     assert he.alpha_correction(stopping_distance=0.4, 
                                radius=3.) == pytest.approx(0.90)
+
+
+def test_model_alpha_ejection():
+    """Unit tests for modle_alpha_ejection."""
+    # Testing when the intersection plane is located atone of the node positions
+    r = 75.
+    s = 20.
+    x = he.calc_node_positions(node_spacing=10, radius=75)
+    fracs = he.model_alpha_ejection(node_positions=x,
+                                    stopping_distance=s,
+                                    radius=r)
+    # First 6 values should be 1
+    assert fracs[:6] == pytest.approx(np.ones(6))
+    assert fracs[6] == pytest.approx(0.692308)
+
+    # Testing when intersection plane is in between nodes
+    s = 25
+    fracs = he.model_alpha_ejection(node_positions=x,
+                                    stopping_distance=s,
+                                    radius=r)
+    # First 5 values should be 1
+    assert fracs[:5] == pytest.approx(np.ones(5))
+    assert fracs[5:] == pytest.approx(np.array([0.859091, 0.619231]))
