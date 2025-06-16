@@ -5,6 +5,28 @@ import pytest
 
 from gdtchron import he
 
+# Constants for tests using T-t series from Ketcham (2005) Figure 10
+# Constants for all Ketcham (2005) tests
+U = 100
+TH = 100
+RADIUS = 100
+NODES = 513
+TIME_INTERVAL = 1e5
+TIMES = np.arange(60, -0.001, -0.1)
+
+# Constants for test 1
+EARLY_TEMPS_1 = np.linspace(120, 20, 101)
+LATE_TEMPS_1 = np.linspace(20, 20, 500)
+TEMPS_1 = np.append(EARLY_TEMPS_1, LATE_TEMPS_1) + 273
+
+# Constants for test 2
+TEMPS_2 = np.linspace(120, 20, 601) + 273
+
+# Constants for test 3
+EARLY_TEMPS_3 = np.linspace(120, 65, 576) + 273
+LATE_TEMPS_3 = np.linspace(65, 20, 26) + 273
+TEMPS_3 = np.append(EARLY_TEMPS_3, LATE_TEMPS_3[1:])
+
 
 def test_tridiag_banded():
     """Unit tests for tridiag_banded."""
@@ -154,3 +176,94 @@ def test_model_alpha_ejection():
     # First 5 values should be 1
     assert fracs[:5] == pytest.approx(np.ones(5))
     assert fracs[5:] == pytest.approx(np.array([0.859091, 0.619231]))
+
+
+def test_he_profile():
+    """Unit tests for he_profile.
+    
+    The time-temperature series for these tests are taken from Ketcham (2005)
+    Figure 10, and the comparison data comes from HeFTy v1.9.3.
+    """
+    # Getting values for all tests
+    uth_molg = he.u_th_ppm_to_molg(U, TH)
+
+    node_spacing = RADIUS / NODES
+    
+    node_positions = he.calc_node_positions(node_spacing, RADIUS)
+
+    node_info = (NODES, node_spacing, node_positions)
+
+    # Test 1
+    x = he.he_profile(temps=TEMPS_1, 
+                      time_interval=TIME_INTERVAL, 
+                      system='AHe',
+                      radius=RADIUS,
+                      uth_molg=uth_molg,
+                      node_information=node_info)
+    
+    v = x / node_positions
+    v_normalized = v / np.max(v)
+
+    assert v_normalized[0] == pytest.approx(1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 80))] == \
+        pytest.approx(0.957, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 84))] == \
+        pytest.approx(0.868, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 90))] == \
+        pytest.approx(0.694, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 94))] == \
+        pytest.approx(0.584, rel=1e-2)
+    assert np.argmin(v_normalized) == 512
+
+    # Test 2
+    x = he.he_profile(temps=TEMPS_2, 
+                      time_interval=TIME_INTERVAL, 
+                      system='AHe',
+                      radius=RADIUS,
+                      uth_molg=uth_molg,
+                      node_information=node_info)
+    
+    v = x / node_positions
+    v_normalized = v / np.max(v)
+
+    assert v_normalized[0] == pytest.approx(1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 28))] == \
+        pytest.approx(0.985, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 50))] == \
+        pytest.approx(0.945, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 68))] == \
+        pytest.approx(0.876, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 84))] == \
+        pytest.approx(0.672, rel=5e-1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 90))] == \
+        pytest.approx(0.508, rel=5e-1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 94))] == \
+        pytest.approx(0.385, rel=5e-1)
+    assert np.argmin(v_normalized) == 512
+
+    # Test 3
+    x = he.he_profile(temps=TEMPS_3, 
+                      time_interval=TIME_INTERVAL, 
+                      system='AHe',
+                      radius=RADIUS,
+                      uth_molg=uth_molg,
+                      node_information=node_info)
+    
+    v = x / node_positions
+    v_normalized = v / np.max(v)
+
+    assert v_normalized[0] == pytest.approx(1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 20))] == \
+        pytest.approx(0.976, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 28))] == \
+        pytest.approx(0.953, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 50))] == \
+        pytest.approx(0.840, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 68))] == \
+        pytest.approx(0.683, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 84))] == \
+        pytest.approx(0.444, rel=5e-1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 92))] == \
+        pytest.approx(0.267, rel=5e-1)
+    assert np.argmin(v_normalized) == 512
+
