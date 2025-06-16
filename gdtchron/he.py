@@ -434,8 +434,6 @@ def he_profile(temps, time_interval, system, radius, uth_molg,
     # Unpack parameters
     nodes, node_spacing, node_positions = node_information
     u238_molg, u235_molg, th_molg = uth_molg
-    freq_factor = SYSTEM_PARAMS[system]['freq_factor']
-    activ_energy = SYSTEM_PARAMS[system]['activ_energy']
     stop_dist_u238 = SYSTEM_PARAMS[system]['S_238U']
     stop_dist_u235 = SYSTEM_PARAMS[system]['S_235U']
     stop_dist_th232 = SYSTEM_PARAMS[system]['S_232Th']
@@ -465,7 +463,7 @@ def he_profile(temps, time_interval, system, radius, uth_molg,
     for temp in temps:
         
         # Use temperature to calculate diffusivity and beta
-        diffusivity = calc_diffusivity(temp, freq_factor, activ_energy)
+        diffusivity = calc_diffusivity(temp, system)
         beta = calc_beta(diffusivity, node_spacing, time_interval)
         
         # Calculate A (banded) and use current x to calculate new B
