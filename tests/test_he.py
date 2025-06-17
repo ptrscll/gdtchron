@@ -151,7 +151,7 @@ def test_calculate_he_age():
 
 def test_alpha_correction():
     """Unit test for alpha_correction."""
-    assert he.alpha_correction(stopping_distance=0.4, 
+    assert he.alpha_correction(stop_distance=0.4, 
                                radius=3.) == pytest.approx(0.90)
 
 
@@ -162,7 +162,7 @@ def test_model_alpha_ejection():
     s = 20.
     x = he.calc_node_positions(node_spacing=10, radius=75)
     fracs = he.model_alpha_ejection(node_positions=x,
-                                    stopping_distance=s,
+                                    stop_distance=s,
                                     radius=r)
     # First 6 values should be 1
     assert fracs[:6] == pytest.approx(np.ones(6))
@@ -171,7 +171,7 @@ def test_model_alpha_ejection():
     # Testing when intersection plane is in between nodes
     s = 25
     fracs = he.model_alpha_ejection(node_positions=x,
-                                    stopping_distance=s,
+                                    stop_distance=s,
                                     radius=r)
     # First 5 values should be 1
     assert fracs[:5] == pytest.approx(np.ones(5))
@@ -266,4 +266,28 @@ def test_he_profile():
     assert v_normalized[np.argmin(np.abs(node_positions - 92))] == \
         pytest.approx(0.267, rel=5e-1)
     assert np.argmin(v_normalized) == 512
+
+
+def test_profile_to_age():
+    """Unit test for profile_to_age."""
+    # Setting up x
+    node_positions = he.calc_node_positions(node_spacing=0.1, radius=0.35)
+    v = np.array([0.343, 0.026385, 0.007])
+    x = v * node_positions
+
+    (age_corr, 
+     age_uncorr,
+     pos_norm, 
+     v_norm) = he.profile_to_age(x=x, 
+                                 node_positions=node_positions,
+                                 radius=0.35,
+                                 uth_molg=(0.01, 0.002, 0.05),
+                                 stop_distances=np.array([0.07, 0.14, 0.]))
+    
+    assert age_uncorr == pytest.approx(87.7654)
+    assert age_corr == pytest.approx(102.77)
+    assert pos_norm == pytest.approx(np.array([1 / 7, 3 / 7, 5 / 7]))
+    assert v_norm == pytest.approx(np.array([1., 0.0769242, 0.02040816]))
+    
+
 
