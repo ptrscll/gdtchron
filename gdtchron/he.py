@@ -6,10 +6,8 @@ alpha correction from Ketcham et al. (2011)
 
 import warnings
 
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import romb
-from scipy.interpolate import griddata
 from scipy.linalg import solve_banded
 from scipy.optimize import fsolve
 
@@ -68,7 +66,7 @@ def tridiag_banded(a, b, c, diag_length, dtype=np.float32):
 
     Returns
     -------
-    tridiag_matrix : numpy array
+    tridiag_matrix : NumPy ndarray
         Tridiagonal matrix
 
     """
@@ -241,7 +239,7 @@ def sum_he_shells(x, node_positions, radius):
     -------
     he_molg : float
         Total amount (mol / g) of He within the modeled crystal.
-    v : NumPy array
+    v : NumPy array of floats
         Radial profile of He (mol / g)
 
     """
@@ -319,7 +317,7 @@ def calc_age(he_molg, u238_molg, u235_molg, th_molg):
     return age_ma
 
 
-def alpha_correction(stopping_distance, radius):
+def alpha_correction(stop_distance, radius):
     """
     Calculate alpha ejection correction factor, after Ketcham et al. (2011).
 
@@ -327,57 +325,57 @@ def alpha_correction(stopping_distance, radius):
 
     Parameters
     ----------
-    stopping_distance : float
-        Stopping distance for particular isotopic system (micrometers).
+    stop_distance : float or NumPy array of floats
+        Stopping distance(s) for particular isotopic system(s) (micrometers).
     radius : float
         Radius of the grain (micrometers)
 
     Returns
     -------
-    tau : float
-        Alpha correction factor (F_T in Ketcham et al. (2011))
+    tau : float or NumPy array of floats
+        Alpha correction factor(s) (F_T in Ketcham et al. (2011))
 
     """
     volume = (4 / 3) * np.pi * radius ** 3
     surface_area = 4 * np.pi * radius ** 2
     
-    tau = 1 - 0.25 * ((surface_area * stopping_distance) / volume)
+    tau = 1 - 0.25 * ((surface_area * stop_distance) / volume)
     
     return tau
 
 
-def model_alpha_ejection(node_positions, stopping_distance, radius):
+def model_alpha_ejection(node_positions, stop_distance, radius):
     """Model retained fraction of He after alpha ejection.
 
     Calculations from in-text equations in Ketcham (2005).
 
     Parameters
     ----------
-    node_positions : NumPy array
+    node_positions : NumPy array of floats
         Radial positions of each modeled node (micrometers)
-    stopping_distance : float
+    stop_distance : float
         Stopping distance for particular isotopic system (micrometers).
     radius : float
         Radius of the grain (micrometers)
 
     Returns
     -------
-    retained_fraction_edge : NumPy array
+    retained_fraction_edge : NumPy array of floats
         Fraction of He retained after alpha ejection for each node position
 
     """
     # Find edge nodes based on stopping distance and radius
-    edge_nodes = node_positions >= radius - stopping_distance
+    edge_nodes = node_positions >= radius - stop_distance
     
     # Calculate location of the intersection planes for all nodes
     intersection_planes = (
-        (node_positions ** 2 + radius ** 2 - stopping_distance ** 2) /
+        (node_positions ** 2 + radius ** 2 - stop_distance ** 2) /
         (2 * node_positions)
         )
     
     # Calculate retained fractions for all nodes hypothetically
     retained_fractions_all = (
-        0.5 + (intersection_planes - node_positions) / (2 * stopping_distance)
+        0.5 + (intersection_planes - node_positions) / (2 * stop_distance)
         )
     
     # Only apply retained fraction to edge nodes
@@ -396,7 +394,7 @@ def he_profile(temps, time_interval, system, radius, uth_molg,
 
     Parameters
     ----------
-    temps : NumPy array
+    temps : NumPy array of floats
         List of temperatures (K) for the time-temperature path
     time_interval : float
         Time (yr) between each temperature in the time-temperature path.
@@ -496,3 +494,73 @@ def he_profile(temps, time_interval, system, radius, uth_molg,
         
     return x
 
+
+def profile_to_age(x, node_positions, radius, uth_molg, stop_distances):
+    """Calculate age based on final helium profile.
+
+    Calculate corrected and uncorrected age based on final He profile. Also
+    calculates normalized He profile and node positions.
+
+    Parameters
+    ----------
+    x : NumPy array of floats
+        Matrix x (mol * micrometers / g) solved for using Equation 21 from 
+        Ketcham (2005). 
+        Equivalent to the concentration times the node position. 
+        In Ketcham (2005), this variable is referred to as u, but x is used here
+        to distinguish this variable from the uranium-related variables.
+    node_positions : NumPy array of floats
+        Radial positions of each modeled node (micrometers)
+    radius : float
+        Radius of the grain (micrometers)
+    uth_molg : tuple
+        u238_molg : float
+            The concentration of U238 (mol / g),
+        u235_molg : float
+            The concentration of U235 (mol / g)
+        th_molg : float
+            The concentration of Th (mol / g)
+    stop_distances : NumPy array of floats
+        Stopping distances (micrometers) for (in order) U238, U235, and Th232
+
+    Returns
+    -------
+    age_corrected : float
+        Corrected (U-Th) / He age
+    age_uncorrected : Float
+        (U-Th) / He age without alpha correction
+    position_normalized : NumPy array of floats
+        Radial positions of each modeled node, normalized so that the radius has
+        a radial position of 1
+    v_normalized : NumPy array of floats
+        Radial profile of He, normalized so that the position with the highest
+        concentration has a value of 1
+
+    """
+    he_molg, v = sum_he_shells(x, node_positions, radius)
+    
+    u238_molg, u235_molg, th_molg = uth_molg
+    
+    # Because alpha ejection modeled, model age is an "uncorrected" age.
+    age_uncorrected = calc_age(he_molg, u238_molg, u235_molg, th_molg)
+
+    # "Corrected" age uses alpha-adjusted U-Th values
+    
+    # Get array of correction values (238,235,232)
+    tau = alpha_correction(stop_distances, radius)
+    
+    # Correct U and Th accordingly
+    u238_corr = u238_molg * tau[0]
+    u235_corr = u235_molg * tau[1]
+    th_corr = th_molg * tau[2]
+    
+    age_corrected = calc_age(he_molg, u238_corr, u235_corr, th_corr)
+    
+    # Make diffusional profile
+    v_normalized = v / np.max(v)
+    position_normalized = node_positions / radius
+    
+    return (age_corrected, 
+            age_uncorrected, 
+            position_normalized,
+            v_normalized)
