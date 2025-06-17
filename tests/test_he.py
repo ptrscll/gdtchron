@@ -277,6 +277,7 @@ def test_profile_to_age():
 
     (age_corr, 
      age_uncorr,
+     he_molg,
      pos_norm, 
      v_norm) = he.profile_to_age(x=x, 
                                  node_positions=node_positions,
@@ -286,6 +287,7 @@ def test_profile_to_age():
     
     assert age_uncorr == pytest.approx(87.7654)
     assert age_corr == pytest.approx(102.77)
+    assert he_molg == pytest.approx(0.003666706)
     assert pos_norm == pytest.approx(np.array([1 / 7, 3 / 7, 5 / 7]))
     assert v_norm == pytest.approx(np.array([1., 0.0769242, 0.02040816]))
     
