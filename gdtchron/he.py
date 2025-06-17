@@ -529,6 +529,8 @@ def profile_to_age(x, node_positions, radius, uth_molg, stop_distances):
         Corrected (U-Th) / He age
     age_uncorrected : Float
         (U-Th) / He age without alpha correction
+    he_molg : float
+        Total amount (mol / g) of He within the modeled crystal.
     position_normalized : NumPy array of floats
         Radial positions of each modeled node, normalized so that the radius has
         a radial position of 1
@@ -562,5 +564,106 @@ def profile_to_age(x, node_positions, radius, uth_molg, stop_distances):
     
     return (age_corrected, 
             age_uncorrected, 
+            he_molg,
             position_normalized,
             v_normalized)
+
+
+def forward_model(temps, time_interval, system, u, th, radius, nodes=513,
+                  initial_x=None, return_all=True):
+    """Forward model a (U-Th)/He age for a particular time-temperature path.
+    
+    Uses finite difference method for diffusion within a sphere as described 
+    in Ketcham (2005). Applies alpha ejection correction after Ketcham et al.
+    (2011). Returns corrected age and optionally additional relevant values.
+
+    Parameters
+    ----------
+    temps : NumPy array
+        List of temperatures (K) for the time-temperature path
+    time_interval : float
+        Time (yr) between each temperature in the time-temperature path.
+    system : string
+        Isotopic system. Current options are 'AHe' and 'ZHe'.
+    u : float
+        U concentration (ppm)
+    th : float
+        Th concentration (ppm)
+    radius : float
+        Radius of the grain (micrometers)
+    nodes : float, optional
+        Number of nodes to model within the crystal. The default is 513.
+    initial_x : NumPy array of floats or None, optional
+        Array containing the initial values for x (mol * micrometers / g). If 
+        all values in the array are np.nan or initial_x is set to None, this 
+        function assumes that the initial values for x are 0 for all nodes. Note
+        that x is referred to as u in Ketcham (2005). (default: None)
+    return_all : bool
+        Boolean indicating whether to return additional values calculated by
+        the functions as a part of the forward model. If False, only the 
+        corrected age is returned.
+
+    Returns
+    -------
+    age_corrected : float
+        Corrected (U-Th) / He age
+    age_uncorrected : float (optional)
+        (U-Th) / He age without alpha correction. 
+        Returned if return_all is True.
+    he_molg : float (optional)
+        Total amount (mol / g) of He within the modeled crystal.
+        Returned if return_all is True.
+    position_normalized : NumPy array of floats (optional)
+        Radial positions of each modeled node, normalized so that the radius has
+        a radial position of 1.
+        Returned if return_all is True.
+    v_normalized : NumPy array of floats (optional)
+        Radial profile of He, normalized so that the position with the highest
+        concentration has a value of 1.
+        Returned if return_all is True.
+    x : NumPy array of floats
+        Matrix x solved for using Equation 21 Ketcham (2005). 
+        Equivalent to the concentration times the node position.
+        Returned if return_all is True.
+
+    """
+    # Find node spacing and time interval based on radius and T-t path
+    node_spacing = radius / nodes
+    
+    node_positions = calc_node_positions(node_spacing, radius)
+    
+    # Get mol/g of U,Th
+    u238_molg, u235_molg, th_molg = u_th_ppm_to_molg(u, th)
+    
+    # Package parameters to pass to subsequent functions    
+    node_information = (nodes, node_spacing, node_positions)
+    uth_molg = (u238_molg, u235_molg, th_molg)
+    stop_distances = np.array([SYSTEM_PARAMS[system]['S_238U'],
+                               SYSTEM_PARAMS[system]['S_235U'],
+                               SYSTEM_PARAMS[system]['S_232Th']])
+    
+    # Calculate He profile
+    # Getting avg temperatures for each interval
+    avg_temps = np.convolve(temps, np.ones(2), 'valid') / 2.
+    x = he_profile(avg_temps, time_interval, system, radius, uth_molg, 
+                   node_information, initial_x)
+    
+    (age_corrected, 
+     age_uncorrected, 
+     he_molg,
+     position_normalized,
+     v_normalized) = profile_to_age(x=x,
+                                    node_positions=node_positions,
+                                    radius=radius,
+                                    uth_molg=uth_molg,
+                                    stop_distances=stop_distances)
+    
+    if return_all:
+        return (age_corrected, 
+                age_uncorrected, 
+                he_molg, 
+                position_normalized, 
+                v_normalized, 
+                x)
+    else:
+        return age_corrected
