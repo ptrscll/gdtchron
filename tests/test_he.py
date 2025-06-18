@@ -292,4 +292,105 @@ def test_profile_to_age():
     assert v_norm == pytest.approx(np.array([1., 0.0769242, 0.02040816]))
     
 
+def test_forward_model_he():
+    """Unit tests for forward_model_he.
+    
+    The time-temperature series for these tests are taken from Ketcham (2005)
+    Figure 10, and the comparison data comes from HeFTy v1.9.3.
+    """
+    # Getting values for all tests
+    node_spacing = RADIUS / NODES
+    
+    node_positions = he.calc_node_positions(node_spacing, RADIUS)
 
+    # Test 1
+    (age_corrected, 
+     age_uncorrected, 
+     he_nmolg, 
+     position_normalized, 
+     v_normalized, 
+     x) = he.forward_model_he(temps=TEMPS_1,
+                              time_interval=TIME_INTERVAL,
+                              system='AHe',
+                              u=U,
+                              th=TH,
+                              radius=RADIUS)
+
+    assert v_normalized[0] == pytest.approx(1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 80))] == \
+        pytest.approx(0.957, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 84))] == \
+        pytest.approx(0.868, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 90))] == \
+        pytest.approx(0.694, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 94))] == \
+        pytest.approx(0.584, rel=1e-2)
+    assert np.argmin(v_normalized) == 512
+
+    assert he_nmolg == pytest.approx(3.115e1, rel=5e-3)
+    assert age_corrected == pytest.approx(54.4, rel=5e-3)
+    assert age_uncorrected == pytest.approx(46.5, rel=5e-3)
+
+    # Test 2
+    (age_corrected, 
+     age_uncorrected, 
+     he_nmolg, 
+     position_normalized, 
+     v_normalized, 
+     x) = he.forward_model_he(temps=TEMPS_2,
+                              time_interval=TIME_INTERVAL,
+                              system='AHe',
+                              u=U,
+                              th=TH,
+                              radius=RADIUS)
+
+    assert v_normalized[0] == pytest.approx(1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 28))] == \
+        pytest.approx(0.985, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 50))] == \
+        pytest.approx(0.945, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 68))] == \
+        pytest.approx(0.876, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 84))] == \
+        pytest.approx(0.672, rel=5e-1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 90))] == \
+        pytest.approx(0.508, rel=5e-1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 94))] == \
+        pytest.approx(0.385, rel=5e-1)
+    assert np.argmin(v_normalized) == 512
+
+    assert he_nmolg == pytest.approx(15.01, rel=5e-2)
+    assert age_corrected == pytest.approx(26.3, rel=5e-2)
+    assert age_uncorrected == pytest.approx(22.5, rel=5e-2)
+
+    # Test 3
+    (age_corrected, 
+     age_uncorrected, 
+     he_nmolg, 
+     position_normalized, 
+     v_normalized, 
+     x) = he.forward_model_he(temps=TEMPS_3,
+                              time_interval=TIME_INTERVAL,
+                              system='AHe',
+                              u=U,
+                              th=TH,
+                              radius=RADIUS)
+
+    assert v_normalized[0] == pytest.approx(1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 20))] == \
+        pytest.approx(0.976, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 28))] == \
+        pytest.approx(0.953, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 50))] == \
+        pytest.approx(0.840, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 68))] == \
+        pytest.approx(0.683, rel=1e-2)
+    assert v_normalized[np.argmin(np.abs(node_positions - 84))] == \
+        pytest.approx(0.444, rel=5e-1)
+    assert v_normalized[np.argmin(np.abs(node_positions - 92))] == \
+        pytest.approx(0.267, rel=5e-1)
+    assert np.argmin(v_normalized) == 512
+
+    assert he_nmolg == pytest.approx(3.894, rel=1e-1)
+    assert age_corrected == pytest.approx(6.83, rel=1e-1)
+    assert age_uncorrected == pytest.approx(5.84, rel=1e-1)
