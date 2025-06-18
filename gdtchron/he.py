@@ -569,7 +569,7 @@ def profile_to_age(x, node_positions, radius, uth_molg, stop_distances):
             v_normalized)
 
 
-def forward_model(temps, time_interval, system, u, th, radius, nodes=513,
+def forward_model_he(temps, time_interval, system, u, th, radius, nodes=513,
                   initial_x=None, return_all=True):
     """Forward model a (U-Th)/He age for a particular time-temperature path.
     
@@ -610,8 +610,8 @@ def forward_model(temps, time_interval, system, u, th, radius, nodes=513,
     age_uncorrected : float (optional)
         (U-Th) / He age without alpha correction. 
         Returned if return_all is True.
-    he_molg : float (optional)
-        Total amount (mol / g) of He within the modeled crystal.
+    he_nmolg : float (optional)
+        Total amount (nmol / g) of He within the modeled crystal.
         Returned if return_all is True.
     position_normalized : NumPy array of floats (optional)
         Radial positions of each modeled node, normalized so that the radius has
@@ -658,10 +658,12 @@ def forward_model(temps, time_interval, system, u, th, radius, nodes=513,
                                     uth_molg=uth_molg,
                                     stop_distances=stop_distances)
     
+    he_nmolg = 1e9 * he_molg
+    
     if return_all:
         return (age_corrected, 
                 age_uncorrected, 
-                he_molg, 
+                he_nmolg, 
                 position_normalized, 
                 v_normalized, 
                 x)
