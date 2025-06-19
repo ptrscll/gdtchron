@@ -26,7 +26,7 @@ KETCHAM_99_FC = {
 }
 
 # Other constants
-SECONDS_PER_YEAR = 365.2422 * 24 * 60 * 60 
+SECONDS_PER_MYR = 1e6 * 365.2422 * 24 * 60 * 60 
 
 #######################
 # Annealing Functions #
@@ -69,7 +69,7 @@ def f(temperature, time_annealed, constants=KETCHAM_99_FC):
     temperature : float
         Temperature (K)
     time_annealed : float or NumPy array of floats
-        How long the crystal annealed at a given temperature (s)
+        How long the crystal annealed at a given temperature (Myr)
     constants : dict
         Dictionary of constants associated with annealing model being used
         (default: KETCHAM_99_FC)
@@ -84,9 +84,11 @@ def f(temperature, time_annealed, constants=KETCHAM_99_FC):
     c1 = constants["c1"]
     c2 = constants["c2"]
     c3 = constants["c3"]
+    # Convert timesteps to seconds
+    time_s = time_annealed * SECONDS_PER_MYR
 
     return c0 + c1 * \
-        ((np.log(time_annealed) - c2) / (np.log(1 / temperature) - c3))
+        ((np.log(time_s) - c2) / (np.log(1 / temperature) - c3))
 
 
 def get_equiv_time(r_initial, temperature, constants=KETCHAM_99_FC):
@@ -107,7 +109,7 @@ def get_equiv_time(r_initial, temperature, constants=KETCHAM_99_FC):
     Returns
     -------
     NumPy array of floats:
-        Time(s) (in seconds) it would take to anneal to the given reduced 
+        Time(s) (in Myr) it would take to anneal to the given reduced 
         length(s) if temperature remained constant
 
     """
@@ -118,8 +120,11 @@ def get_equiv_time(r_initial, temperature, constants=KETCHAM_99_FC):
 
     exponent = ((g(r_initial, constants) - c0) / c1) * \
         (np.log(1 / temperature) - c3) + c2
+    
+    time_s = np.exp(exponent)
 
-    return np.exp(exponent)
+    # Return time in Myr
+    return time_s / SECONDS_PER_MYR
 
 
 def get_next_r(temperature, time_annealed, constants=KETCHAM_99_FC):
@@ -132,7 +137,7 @@ def get_next_r(temperature, time_annealed, constants=KETCHAM_99_FC):
     temperature : float
         Temperature (K)
     time_annealed : NumPy array of floats
-        How long the crystal annealed at a given temperature (s)
+        How long the crystal annealed at a given temperature (Myr)
     constants : dict
         Dictionary of constants associated with annealing model being used
         (default: KETCHAM_99_FC)
@@ -187,9 +192,9 @@ def calc_annealing(r_initial, temperature, start, end, next_nan_index,
     temperature : float
         Temperature (K)
     start : float
-        Start time of timestep (yrs BP)
+        Start time of timestep (Ma)
     end : float
-        End time of timestep (yrs BP)
+        End time of timestep (Ma)
     next_nan_index : int
         First index of r_initial to have a value of np.nan. This index
         corresponds to fission tracks that will be produced at the current
@@ -205,10 +210,6 @@ def calc_annealing(r_initial, temperature, start, end, next_nan_index,
         timestep. 
         
     """
-    # Convert timesteps to seconds
-    start *= SECONDS_PER_YEAR
-    end *= SECONDS_PER_YEAR
-
     # Getting equivalent time it would have taken to reach current reduced
     # lengths if the temperature had always been at its current value
     # Note - we can't call get_equiv_time on r_initial = 0 (or very small r),
@@ -338,7 +339,7 @@ def calc_aft_age(r_final, tsteps, rho_st=0.893):
         already be converted to account for dpar variations.
 
     tsteps : NumPy array of floats
-        Array of times (yrs BP) that each set of fission tracks was produced
+        Array of times (Ma) that each set of fission tracks was produced
         at. This array should be in descending (i.e., chronological) order. The
         final time in this array should be 0. and should not have a
         corresponding reduced length in r_final.
@@ -350,7 +351,7 @@ def calc_aft_age(r_final, tsteps, rho_st=0.893):
     Returns
     -------
     float:
-        AFT age (Myrs BP)
+        AFT age (Ma)
     
     """
     # Calculate FT densities via Equation 13
@@ -361,8 +362,7 @@ def calc_aft_age(r_final, tsteps, rho_st=0.893):
 
     # Calculate ages from densities via Equation 14 
     # Also ensure age can't be negative
-    # Division by 1e6 converts from yrs to Myrs
-    return max(np.sum(rho * delta_t) / rho_st, 0) / 1e6
+    return max(np.sum(rho * delta_t) / rho_st, 0)
 
 ################################
 # Length Calculation Functions #
@@ -432,7 +432,7 @@ def calc_weights(r, tsteps, lamb=1.551e-4):
         point on the apatite's time-temperature path. These values should 
         already be converted to account for dpar variations.
     tsteps : NumPy array of floats with length n + 1, where n > 1
-        Array of times (yrs BP) that each set of fission tracks was produced
+        Array of times (Ma) that each set of fission tracks was produced
         at. This array should be in descending (i.e., chronological) order. The
         first time is the start of the first timestep, last time is end of last 
         timestep.
@@ -445,8 +445,8 @@ def calc_weights(r, tsteps, lamb=1.551e-4):
         Weights for each timestep
     
     """
-    starts = tsteps[:-1] / 1e6  # t2 (Myr)
-    ends = tsteps[1:] / 1e6     # t1 (Myr)
+    starts = tsteps[:-1]  # t2
+    ends = tsteps[1:]     # t1
     w1 = (np.exp(lamb * starts) - np.exp(lamb * ends)) / lamb
     w2 = r_to_rho(r)
     w = w1 * w2
@@ -548,7 +548,7 @@ def calc_l_dist(r, dpar, tsteps, constants=KETCHAM_99_FC, make_graph=False,
     dpar : float
         Etch figure length (micrometers)
     tsteps : NumPy array of floats with length n + 1
-        Array of times (yrs BP) that each set of fission tracks was produced
+        Array of times (Ma) that each set of fission tracks was produced
         at. This array should be in descending (i.e., chronological) order. The
         first time is the start of the first timestep, last time is end of last 
         timestep.
@@ -605,7 +605,7 @@ def forward_model_aft(temps, tsteps, dpar, constants=KETCHAM_99_FC,
     temps : NumPy array of floats with length n, where n > 1
         Temperatures (K) at each time in tsteps
     tsteps : NumPy array of floats with length n, where n > 1
-        Array of times (yrs BP) in chronological (descending) order. First 
+        Array of times (Ma) in chronological (descending) order. First 
         time is start of first timestep, last time is end of last timestep. 
         Each pair of adjacent times composes a timestep
     dpar : float
@@ -631,7 +631,7 @@ def forward_model_aft(temps, tsteps, dpar, constants=KETCHAM_99_FC,
     Returns
     -------
     age : float
-        Model age (Myrs BP) of apatite that experienced the given 
+        Model age (Ma) of apatite that experienced the given 
         time-temperature history. If get_lengths is False, only age is
         returned.
     length_results (optional) : tuple

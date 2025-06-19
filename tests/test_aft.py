@@ -44,16 +44,17 @@ def test_f():
 
     # Confirm calculations performed properly for np array
     # Using Ketcham et al. (1999) fanning curvilinear model:
+    anneal_times = np.array([np.nan, 1e10, 1e11]) / aft.SECONDS_PER_MYR
     assert aft.f(temperature=450, 
-                 time_annealed=np.array([np.nan, 1e10, 1e11]))[1:] == \
+                 time_annealed=anneal_times)[1:] == \
                     pytest.approx(np.array([-0.971615, -0.386586]))
     assert np.isnan(aft.f(temperature=450, 
                           time_annealed=np.array([np.nan, 0.9, 0.1]))[0])
 
     # Confirm calculations work for dummy constants
     assert aft.f(temperature=np.e, 
-                 time_annealed=np.e ** 2, 
-                 constants=TEST_CONSTS) == 0.
+                 time_annealed=np.e ** 2 / aft.SECONDS_PER_MYR, 
+                 constants=TEST_CONSTS) == pytest.approx(0.)
 
 
 def test_get_equiv_time():
@@ -62,7 +63,8 @@ def test_get_equiv_time():
     # Using Ketcham et al. (1999) fanning curvilinear model:
     equiv_times = aft.get_equiv_time(np.array([np.nan, 0.9, 0.1]), 
                                      temperature=450.)[1:]
-    assert equiv_times == pytest.approx(np.array([5.428073e8, 7.950111e24]))
+    expected = np.array([5.428073e8, 7.950111e24]) / aft.SECONDS_PER_MYR
+    assert equiv_times == pytest.approx(expected)
     assert np.isnan(aft.get_equiv_time(np.array([np.nan, 0.9, 0.1]), 
                                        temperature=450.)[0])
     
@@ -74,32 +76,33 @@ def test_get_equiv_time():
     assert aft.get_equiv_time(np.array([0.5]), 
                               temperature=np.e, 
                               constants=TEST_CONSTS) \
-        == pytest.approx(np.array([np.e ** 2]))
+        == pytest.approx(np.array([np.e ** 2 / aft.SECONDS_PER_MYR]))
 
 
 def test_get_next_r():
     """Unit tests for get_next_r."""
     # Confirm calculations performed properly for np array with NaNs
     # Using Ketcham et al. (1999) fanning curvilinear model:
-    rs = aft.get_next_r(450., np.array([np.nan, 1e10, 1e11]))[1:]
+    tsteps = np.array([np.nan, 1e10, 1e11]) / aft.SECONDS_PER_MYR
+    rs = aft.get_next_r(450., tsteps)[1:]
     assert rs == pytest.approx(np.array([0.863753, 0.830875]))
-    assert np.isnan(aft.get_next_r(450., np.array([np.nan, 1e10, 1e11]))[0])
+    assert np.isnan(aft.get_next_r(450., tsteps)[0])
     
     # Confirming that Equation 5 of Ketcham (2005) still holds
     assert aft.g(rs) == pytest.approx(aft.f(temperature=450., 
-                                            time_annealed=np.array([1e10, 
-                                                                    1e11])))
+                                            time_annealed=tsteps[1:]))
 
     # Confirm calculations work for dummy constants
     assert aft.get_next_r(temperature=np.e, 
-                          time_annealed=np.e ** 2, 
+                          time_annealed=np.e ** 2 / aft.SECONDS_PER_MYR, 
                           constants=TEST_CONSTS) == 0.5
     
     # Confirm code works for fully annealed tracks
+    full_anneal_time = 1.87165e19 / aft.SECONDS_PER_MYR
     assert aft.get_next_r(temperature=550., 
-                          time_annealed=np.array([1.87165e19])) == \
+                          time_annealed=np.array([full_anneal_time])) == \
                             np.array([0.])
-    assert aft.get_next_r(temperature=550., time_annealed=np.array([1e21])) == \
+    assert aft.get_next_r(temperature=550., time_annealed=np.array([1e13])) == \
         np.array([0.])
     
 
@@ -110,25 +113,25 @@ def test_calc_annealing():
     # Confirm calculations performed properly for initial timestep
     assert aft.calc_annealing(r_initial=np.array([np.nan, np.nan]),
                               temperature=450.,
-                              start=1e10 / aft.SECONDS_PER_YEAR,
+                              start=1e10 / aft.SECONDS_PER_MYR,
                               end=0.,
                               next_nan_index=0)[0] == pytest.approx(0.863753)
     assert np.isnan(aft.calc_annealing(r_initial=np.array([np.nan, np.nan]),
                                        temperature=450.,
-                                       start=1e10 / aft.SECONDS_PER_YEAR,
+                                       start=1e10 / aft.SECONDS_PER_MYR,
                                        end=0.,
                                        next_nan_index=0)[1])
     
     # Confirm calculations performed properly for intermediate timestep
     r1 = aft.calc_annealing(r_initial=np.array([np.nan, np.nan, np.nan]),
                             temperature=450.,
-                            start=1e11 / aft.SECONDS_PER_YEAR,
-                            end=1e10 / aft.SECONDS_PER_YEAR,
+                            start=1e11 / aft.SECONDS_PER_MYR,
+                            end=1e10 / aft.SECONDS_PER_MYR,
                             next_nan_index=0)
     r2 = aft.calc_annealing(r_initial=r1,
                             temperature=450.,
-                            start=1e10 / aft.SECONDS_PER_YEAR,
-                            end=0. / aft.SECONDS_PER_YEAR,
+                            start=1e10 / aft.SECONDS_PER_MYR,
+                            end=0. / aft.SECONDS_PER_MYR,
                             next_nan_index=1)
     assert r2[:2] == pytest.approx(np.array([0.830875, 0.863753]))
     assert np.isnan(r2[2])
@@ -137,12 +140,12 @@ def test_calc_annealing():
     # Also confirm that full annealing of some (but not all tracks) works
     r1 = aft.calc_annealing(r_initial=np.array([np.nan, np.nan]),
                             temperature=650.,
-                            start=1.8e19 / aft.SECONDS_PER_YEAR,
-                            end=1e19 / aft.SECONDS_PER_YEAR,
+                            start=1.8e19 / aft.SECONDS_PER_MYR,
+                            end=1e19 / aft.SECONDS_PER_MYR,
                             next_nan_index=0)
     assert aft.calc_annealing(r_initial=r1,
                               temperature=550.,
-                              start=1e19 / aft.SECONDS_PER_YEAR,
+                              start=1e19 / aft.SECONDS_PER_MYR,
                               end=0.,
                               next_nan_index=1) \
                                 == pytest.approx(np.array([0., 0.0625308]))
@@ -150,7 +153,7 @@ def test_calc_annealing():
     # Confirm calculations work when all tracks fully anneal at end
     assert aft.calc_annealing(r_initial=r1,
                               temperature=950.,
-                              start=1e19 / aft.SECONDS_PER_YEAR,
+                              start=1e19 / aft.SECONDS_PER_MYR,
                               end=0.,
                               next_nan_index=1) \
                                 == pytest.approx(np.array([0., 0.]))
@@ -158,7 +161,7 @@ def test_calc_annealing():
     # Confirm calculations work for dummy constants
     assert aft.calc_annealing(r_initial=np.array([np.nan]),
                               temperature=np.e,
-                              start=(np.e ** 2) / aft.SECONDS_PER_YEAR,
+                              start=(np.e ** 2) / aft.SECONDS_PER_MYR,
                               end=0.,
                               next_nan_index=0,
                               constants=TEST_CONSTS)[0] == pytest.approx(0.5)
@@ -193,17 +196,17 @@ def test_calc_aft_age():
     """Unit tests for calc_aft_age."""
     # Test when no annealing occurs
     assert aft.calc_aft_age(r_final=np.array([1., 1.]),
-                            tsteps=np.array([0.893, 0.4, 0.])) == 1e-6
+                            tsteps=np.array([0.893, 0.4, 0.])) == 1.
     
     # Test when len(r_final) == 1
     assert aft.calc_aft_age(r_final=np.array([0.8]),
                             tsteps=np.array([1., 0.]),
-                            rho_st=0.84) == pytest.approx(1e-6)
+                            rho_st=0.84) == pytest.approx(1.)
     
     # Test when len(r_final) != 1, some annealing occurs, and age != 0
     assert aft.calc_aft_age(r_final=np.array([0.8, 0.9]),
                             tsteps=np.array([30., 20., 0.]),
-                            rho_st=1.) == pytest.approx(26e-6)
+                            rho_st=1.) == pytest.approx(26.)
     
     # Test when r = 0
     assert aft.calc_aft_age(r_final=np.array([0.]),
@@ -238,11 +241,11 @@ def test_calc_weights():
     """Unit tests for calc_weights."""
     # Test smallest possible arrays
     assert aft.calc_weights(r=np.array([0.5]), 
-                            tsteps=np.array([1e6 * np.log(5), 0]), 
+                            tsteps=np.array([np.log(5), 0]), 
                             lamb=1) == pytest.approx(np.array([2.31625]))
     # Test longer arrays (including with un-annealed tracks)
     assert aft.calc_weights(r=np.array([0.6, 1.]),
-                            tsteps=1e10 * np.array([np.log(5), np.log(2), 0]), 
+                            tsteps=1e4 * np.array([np.log(5), np.log(2), 0]), 
                             lamb=1e-4) == pytest.approx(np.array([2.04e4, 1e4]))
 
 
@@ -294,7 +297,7 @@ def test_calc_l_dist():
     # Test array of length 1
     mean, sd, x, freqs = aft.calc_l_dist(r=np.array([0.5]),
                                          dpar=2.,
-                                         tsteps=np.array([1e5, 0]),
+                                         tsteps=np.array([1e-1, 0]),
                                          make_graph=True)
     assert mean == pytest.approx(8.21)
     assert sd < 0.854074  # stdev of un-truncated distribution
@@ -307,7 +310,7 @@ def test_calc_l_dist():
     # Test longer array
     mean, sd, x, freqs = aft.calc_l_dist(r=np.array([0., 15. / 16., 1.]),
                                          dpar=2.,
-                                         tsteps=(1e6 / 1.551e-4) *
+                                         tsteps=(1. / 1.551e-4) *
                                             np.array([np.log(10),
                                                       np.log(5), 
                                                       np.log(2), 
@@ -349,7 +352,6 @@ def test_forward_model_aft():
     temps = np.concatenate((initial_temps, second_temps), axis=None)
     temps += 273.15
     tsteps = np.concatenate((initial_tsteps, second_tsteps), axis=None)
-    tsteps *= 1e6
 
     age, (mean, stdev, l_c, freqs) = aft.forward_model_aft(temps, 
                                                            tsteps, 
@@ -368,7 +370,6 @@ def test_forward_model_aft():
     temps += 273.15
 
     tsteps = np.linspace(93, 0, 500, endpoint=True)
-    tsteps *= 1e6
 
     age, (mean, stdev, l_c, freqs) = aft.forward_model_aft(temps, 
                                                            tsteps, 
@@ -396,7 +397,6 @@ def test_forward_model_aft():
     temps += 273.15
     tsteps = np.concatenate((first_tsteps, second_tsteps, third_tsteps), 
                             axis=None)
-    tsteps *= 1e6
 
     age, (mean, stdev, l_c, freqs) = aft.forward_model_aft(temps, 
                                                            tsteps, 
@@ -425,7 +425,6 @@ def test_forward_model_aft():
     temps += 273.15
     tsteps = np.concatenate((initial_tsteps, second_tsteps, third_tsteps), 
                             axis=None)
-    tsteps *= 1e6
 
     age, (mean, stdev, l_c, freqs) = aft.forward_model_aft(temps, 
                                                            tsteps, 
