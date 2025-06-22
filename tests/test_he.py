@@ -321,7 +321,8 @@ def test_forward_model_he():
                               system='AHe',
                               u=U,
                               th=TH,
-                              radius=RADIUS)
+                              radius=RADIUS,
+                              return_all=True)
 
     assert v_normalized[0] == pytest.approx(1)
     assert v_normalized[np.argmin(np.abs(node_positions - 80))] == \
@@ -349,7 +350,8 @@ def test_forward_model_he():
                               system='AHe',
                               u=U,
                               th=TH,
-                              radius=RADIUS)
+                              radius=RADIUS,
+                              return_all=True)
 
     assert v_normalized[0] == pytest.approx(1)
     assert v_normalized[np.argmin(np.abs(node_positions - 28))] == \
@@ -381,7 +383,8 @@ def test_forward_model_he():
                               system='AHe',
                               u=U,
                               th=TH,
-                              radius=RADIUS)
+                              radius=RADIUS,
+                              return_all=True)
 
     assert v_normalized[0] == pytest.approx(1)
     assert v_normalized[np.argmin(np.abs(node_positions - 20))] == \
