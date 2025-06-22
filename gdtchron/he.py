@@ -574,7 +574,7 @@ def profile_to_age(x, node_positions, radius, uth_molg, stop_distances):
 
 
 def forward_model_he(temps, tsteps, system, u, th, radius, nodes=513,
-                     initial_x=None, return_all=True):
+                     initial_x=None, return_all=False):
     """Forward model a (U-Th)/He age for a particular time-temperature path.
     
     Uses finite difference method for diffusion within a sphere as described 
@@ -599,7 +599,7 @@ def forward_model_he(temps, tsteps, system, u, th, radius, nodes=513,
     radius : float
         Radius of the grain (micrometers)
     nodes : float, optional
-        Number of nodes to model within the crystal. The default is 513.
+        Number of nodes to model within the crystal. (default: 513)
     initial_x : NumPy array of floats or None, optional
         Array containing the initial values for x (mol * micrometers / g). If 
         all values in the array are np.nan or initial_x is set to None, this 
@@ -608,7 +608,7 @@ def forward_model_he(temps, tsteps, system, u, th, radius, nodes=513,
     return_all : bool
         Boolean indicating whether to return additional values calculated by
         the functions as a part of the forward model. If False, only the 
-        corrected age is returned.
+        corrected age is returned. (default: False)
 
     Returns
     -------
@@ -628,7 +628,7 @@ def forward_model_he(temps, tsteps, system, u, th, radius, nodes=513,
         Radial profile of He, normalized so that the position with the highest
         concentration has a value of 1.
         Returned if return_all is True.
-    x : NumPy array of floats
+    x : NumPy array of floats (optional)
         Matrix x solved for using Equation 21 Ketcham (2005). 
         Equivalent to the concentration times the node position.
         Returned if return_all is True.
