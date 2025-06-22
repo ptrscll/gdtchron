@@ -26,8 +26,6 @@ def run_tt_paths(temp_paths, tsteps, system,
                  **kwargs):
     """Run forward model of a given isotopic system across multiple t-T paths.
 
-    TODO
-
     temp_paths : list of NumPy arrays of floats
         List of NumPy arrays of floats containing the temperatures (K) at each
         timestep in tsteps. Each array corresponds to a different grain
@@ -74,8 +72,10 @@ def run_tt_paths(temp_paths, tsteps, system,
 
     Returns
     -------
-    TODO : TODO
-        TODO.
+    ages : list of floats
+        Thermochronometric ages for the given isotopic system for grains that 
+        experienced each of the provided time series. All (U-Th) / He ages 
+        returned are corrected ages. 
     
     """
     if processes is None:
