@@ -5,20 +5,34 @@ import pyvista as pv
 
 from gdtchron import _parallel_vtk, run_tt_paths
 
-"""
-# Generate dummy VTK files for testing
-for x in range(10):
-    # Create very small mesh with 16 points and assign each an id and temp 
-    mesh = pv.ImageData(dimensions=(4, 4, 1)).cast_to_unstructured_grid()
-    mesh['id'] = np.arange(16)
-    # Make temperature the same for all points so it cools over time
-    mesh['T'] = 100 - (x * 10 * np.ones(16))
+# Constants for t-T series in run_vtk
+NUM_VTU_FILES = 10
+TIME_INTERVAL = 0.2  # Myr
+MAX_TEMP = 400.
+DELTA_TEMP = 10.
 
-    mesh.save('file_' + str(x) + '.vtu')
 
-# Define times (Ma) for the 10 files
-times = np.arange(9, -1, 1)
-"""
+def test_run_vtk():
+    """Unit tests for run_vtk."""
+    # Generate dummy VTK files for testing
+    filenames = []
+    for x in range(NUM_VTU_FILES):
+        # Create very small mesh with 16 points and assign each an id and temp 
+        mesh = pv.ImageData(dimensions=(4, 4, 1)).cast_to_unstructured_grid()
+        mesh['id'] = np.arange(16)
+        # Make temperature the same for all points so it cools over time
+        mesh['T'] = MAX_TEMP - (x * DELTA_TEMP * np.ones(16))
+
+        filename = 'file_' + str(x) + '.vtu'
+        mesh.save(filename)
+        filenames.append(filename)
+
+    # Define times (Ma) for the 10 files
+    times = np.arange(start=TIME_INTERVAL * NUM_VTU_FILES, 
+                      stop=-TIME_INTERVAL, 
+                      step=TIME_INTERVAL)
+    
+    # TODO: Actually call run_vtk and make sure everything works
 
 
 def test_run_tt_paths():
