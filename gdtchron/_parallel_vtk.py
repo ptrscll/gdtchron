@@ -6,11 +6,14 @@ across the T-t paths experienced by different particles across a series of
 VTK meshes (run_vtk)
 """
 
+import gc
 import os
 import shutil
+import warnings
 
 import numpy as np
 import pyvista as pv
+from contextlib import suppress
 from joblib import Parallel, delayed
 from scipy.spatial import KDTree
 from tqdm import tqdm
@@ -62,7 +65,6 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
         x is referred to as u).
         Equivalent to the He concentration (mol / g) times the node position
         (micrometers).
-
 
     """
     # Unpack inputs
@@ -120,7 +122,8 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
             try:
                 profile = old_profiles[neighbor_id == old_ids]
             except Exception:
-                print("problem - likely multi-dimensional id!")
+                warnings.warn("Warning: likely multi-dimensional id", 
+                              stacklevel=2)
                 x = np.empty(he_profile_nodes, dtype=dtype)
                 x.fill(dtype(np.inf))
                 age = np.nan
@@ -161,6 +164,374 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
     else:
         age = np.nan
         return (age, x)
+    
+
+def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):  
+    """Calculate FT reduced lengths for a particular ASPECT particle.
+
+    Function to calculate the reduced lengths (unitless) within a hypothetical 
+    grain found in a given particle. This function's primary purpose is to be 
+    run in parallel by run_vtk.
+
+    Parameters
+    ----------
+    particle_id : int
+        ID corresponding to the particle to get the reduced lengths of
+    inputs : tuple
+        k : TODO
+            TODO
+        positions : TODO
+            Locations of each particle
+        tree : scipy.spatial.KDTree
+            K-d tree ... TODO (and TODO: resume from here)
+    calc_age : bool
+        Boolean indicating whether to calculate age of particle. If False,
+        age is returned as np.nan.
+    interpolate_profile : bool
+        Boolean indicating whether to interpolate He data from nearest neighbor
+        of the particle if the particle itself lacks He data. If False and the
+        particle is missing He data, an age of np.nan and a profile filled with 
+        np.inf are returned.
+
+    Returns
+    -------
+    age : float
+        Age of the particle. This equals np.nan if calc_age is False or there
+        is an issue obtaining the age of the particle
+    r : NumPy array of floats
+        Updated reduced lengths (unitless) for a hyppothetical grain located 
+        within this particle.
+
+    """
+    # Use float64 to match nans
+    dtype = np.float64
+    
+    # Unpack inputs
+    (k, positions, tree, ids, old_ids, temps, old_temps, old_annealing_arrays,
+     time_interval, other_particles,
+     system, r_length, (constants, dpar)) = inputs
+    
+    # Get old profile and temperature for current particle if present
+    r_initial = old_annealing_arrays[particle_id == old_ids]
+    particle_start_temp = old_temps[particle_id == old_ids]
+
+    # Create variable to track if missing old data for particle
+    missing = False
+     
+    # If array is empty, assign np.nan
+    # If r_initial is filled with np.inf (i.e, we have a bugged particle), 
+    # return (NaN, r_initital)
+    if r_initial.size == 0:
+        r_initial = np.empty(r_length, dtype=dtype)
+        r_initial.fill(np.nan) 
+        missing = True
+    elif r_initial[0][0] == dtype(np.inf):
+        age = np.nan
+        return (age, r_initial[0])
+    else:
+        r_initial = r_initial[0]
+    
+    # Get final particle temperature
+    particle_end_temp = temps[ids == particle_id]
+       
+    # If particle not found, don't attempt to calculate profile or age
+    if particle_end_temp.size == 0:            
+        x = np.empty(r_length, dtype=dtype)
+        x.fill(dtype(np.inf))
+        age = np.nan
+        return (age, x)
+    
+    # Use annealing from nearest neighbor in previous timestep if none present
+    
+    if missing:
+        
+        if interpolate_profile:
+        
+            # Get particle position
+            particle_position = positions[ids == particle_id]
+            
+            # Find closest particle
+            distance, index = tree.query(particle_position)
+            
+            # Get id of closest particle
+            neighbor_id = other_particles[index]
+            
+            # Get profile of closest particle
+            try:
+                r_initial = old_annealing_arrays[neighbor_id == old_ids][0]
+            except Exception:
+                warnings.warn("Warning: likely multi-dimensional id", 
+                              stacklevel=2)
+                x = np.empty(r_length, dtype=dtype)
+                x.fill(dtype(np.inf))
+                age = np.nan
+                return (age, x)
+
+            # Get temp of closest particle
+            particle_start_temp = old_temps[neighbor_id == old_ids]
+        
+        # If turned off, return np.nan
+        elif not interpolate_profile:
+            x = np.empty(r_length, dtype=dtype)
+            x.fill(dtype(np.inf))
+            age = np.nan
+            return (age, x)
+    
+    # Double checking that interpolated particle isn't bugged
+    if r_initial[0] == dtype(np.inf):
+        age = np.nan
+        return (age, r_initial)
+        
+    # Getting average temperature
+    particle_temp = (particle_start_temp[0] + particle_end_temp[0]) / 2
+    
+    # For basic annealing calculations, absolute time doesn't matter -
+    # we just need to maintain difference between start and end times
+    # (start time > end time because the function measures time in yrs BP)
+    r = aft.calc_annealing(r_initial, particle_temp, start=time_interval, 
+                           end=0, next_nan_index=k - 1, constants=constants)
+
+    if calc_age:
+        r_so_far = aft.dpar_conversion(r_mr=r[~np.isnan(r)], 
+                                       dpar=dpar, 
+                                       constants=constants)
+        tsteps = np.arange(k * time_interval, -0.1, -1 * time_interval)
+        age = aft.calc_aft_age(r_so_far, tsteps)
+        return (age, r)
+        
+    else:    
+        age = np.nan
+        return (age, r)
+    
+
+def tchron_vtk_parallel(files, system, time_interval, 
+                        model_inputs,
+                        file_prefix='meshes_tchron', path='./', 
+                        temp_dir='~/dump',
+                        batch_size=100, processes=None,
+                        internal_len=513, interpolate_vals=True, 
+                        all_timesteps=True, overwrite=False):
+    """Perform parallel He or FT forward modeling of ASPECT VTK data.
+
+    TODO
+    
+    Parameters
+    ----------
+    files : list of TODO
+        List of vtu files to run forward model on
+    system : string
+        Isotopic system to model. Current options are:
+            'AHe': Apatite (U-Th) / He
+            'ZHe': Zircon (U-Th) / He
+            'AFT': Apatite Fission Track
+    time_interval : float
+        Interval (Myrs) between times when each mesh was produced
+    model_inputs : tuple
+        TODO: Update (and add support for submitting annealing model via str)
+        For He model: (U, Th, radius) (ex: (U=100,Th=100,radius=50))
+        For FT model: (constants, Dpar) (e.g, (AFT.Kecham_99_FC, 1.75))
+    file_prefix : string
+        Prefix to give output files
+    path : string
+        Path to output directory
+    temp_dir : string
+        Path to temporary output directory
+    batch_size : int or 'auto', optional
+        Number of batches to be dispatched to each worker at a time during 
+        parallel computation (default: 100). If set to 'auto', this value is
+        dynamically adjusted during computations to try to optimize efficiency.
+    processes : int or None, optional
+        Maximum number of processes that can run concurrently. If None, this
+        parameter is internally set to two less than the number of CPUs on the
+        user's system (default: None).
+    internal_len : int <-- TODO: Move this to model_inputs
+        Number of nodes within the grain (for He) (default: 513). Unused for FT 
+        system
+    interpolate_profile : bool
+        Boolean indicating whether to interpolate He data from nearest neighbor
+        of the particle if the particle itself lacks He data. If False and the
+        particle is missing He data, an age of np.nan and a profile filled with 
+        np.inf are returned. (default: True)
+    all_timesteps : bool
+        Boolean indicating whether to calculate ages at each tstep 
+        (default: True)
+    overwrite : bool
+        TODO
+
+    Returns
+    -------
+    This function does not return any values.
+
+    """
+    dtype=np.float32
+    
+    if processes is None:
+        processes = os.cpu_count() - 2
+    
+    if batch_size == 'auto':
+        pre_dispatch = 2*processes
+    else:
+        pre_dispatch = 2*batch_size
+    
+    particle_fn = {'AHe': run_particle_he,
+                'ZHe': run_particle_he,
+                'AFT': run_particle_ft}
+    
+    # Path for temporary memory dumps
+    temp_dir = os.path.expanduser(temp_dir)
+    
+    try:
+        shutil.rmtree(temp_dir)
+    except:
+        pass
+    
+    os.makedirs(temp_dir)
+    
+    new_dir = os.path.join(path, file_prefix)
+    os.makedirs(new_dir, exist_ok=True)
+    
+    # Path for dump of cached internal values
+    cache_path = os.path.join(new_dir, 'cache_internal_vals.npy')
+    
+    with Parallel(n_jobs=processes,
+                  batch_size=batch_size,
+                  pre_dispatch=pre_dispatch,
+                  temp_folder=temp_dir) as parallel:
+    
+        # Loop through timesteps
+        for k, file in enumerate(files):  
+            
+            filename = file_prefix + '_' + str(k).zfill(3) + '.vtu'
+            filepath = os.path.join(new_dir,filename)
+            
+            # Check if target mesh already exists and no overwrite
+            if os.path.exists(filepath) and not overwrite:
+                # Check if system in that mesh
+                old_mesh = pv.read(filepath)
+                if system in old_mesh.point_data:                
+                    print('Timestep ' + str(k) + ' Previously Run')
+                    
+                    # Check for the next target mesh
+                    next_filename = file_prefix + '_' + str(k + 1).zfill(3) + '.vtu'
+                    next_filepath = os.path.join(new_dir, next_filename)
+                    
+                    # If next mesh does not exist or does not have the system,
+                    # load values from cache
+                    next_mesh_exists = os.path.exists(next_filepath)
+                    if (not next_mesh_exists) or \
+                        (not system in pv.read(next_filepath).point_data):
+                        print('Loading from Cache')
+                        ids = old_mesh['id']
+                        positions = old_mesh.points
+                        temps=old_mesh['T']
+                        new_internal_vals = np.load(cache_path)
+                    continue
+                   
+            mesh = pv.read(file)
+            
+            if k==0:
+
+                num_particles = len(mesh['T'])
+
+                # Set up empty arrays for first timestep
+                if system == "AFT":
+                    internal_len = len(files) - 1 # -1 is to account for missing tstep from using averages
+                new_internal_vals = np.empty((num_particles, internal_len), 
+                                             dtype=dtype)
+                new_internal_vals.fill(np.nan)
+                np.save(cache_path, new_internal_vals)
+
+                # Publish ages at 0
+                ages = np.zeros(num_particles)
+                mesh[system] = ages
+                mesh.save(filepath)
+            elif k>0:  
+                old_internal_vals = new_internal_vals
+
+                old_ids = ids # Get ids for previous internal values
+                old_positions = positions
+                old_temps = temps
+
+            temps = mesh['T']
+            
+            gc.collect()
+            if k in np.arange(5,len(files),5):
+                shutil.rmtree(temp_dir)
+                os.makedirs(temp_dir)
+            
+            ids = mesh['id']
+            positions = mesh.points
+
+            # Running the forward model if we've seen at least 2 timesteps
+            if k > 0:
+            
+                # Set up KDTree for timestep if doing interpolation
+                if interpolate_vals==True:
+                    
+                    # Get particle ids of particles with internal_vals
+                    has_vals = ~np.isnan(old_internal_vals).all(axis=1)
+                    other_particles = old_ids[has_vals]
+                    
+                    # Get positions of other particles
+                    other_positions = old_positions[has_vals]
+
+                    # Note: At k=0, all particles have internal_vals but
+                    #       they're all set to NaN, so we need a special case
+                    if k == 1:
+                        other_particles = old_ids
+                        other_positions = old_positions
+
+                    
+                    # Set up KDTree to find closest particle
+                    tree = KDTree(other_positions)
+                    
+                else:
+                    tree=None
+                    other_particles=None
+                    
+                inputs = (k, positions, tree, 
+                        ids, old_ids, temps, old_temps, old_internal_vals,
+                        time_interval, other_particles,
+                        system, internal_len, model_inputs)
+                    
+                # Calculate ages on last timestep only if indicated
+                if all_timesteps==True: 
+                    calc_age=True
+                elif k==len(files)-1:
+                    calc_age=True
+                else:
+                    calc_age=False
+                
+                print('Caluclating Internal Values for Timestep ', k, '...')
+                
+                output = parallel(
+                    delayed(particle_fn[system])
+                    (particle, inputs, calc_age, interpolate_vals)
+                    for particle in tqdm(ids, position=0)
+                    )
+                
+                ages, new_internal_vals = zip(*output)
+            
+                # Convert new_internal_vals to array and save for reload
+                new_internal_vals = np.array(new_internal_vals, dtype=dtype)
+                np.save(cache_path, new_internal_vals)
+            
+                # Assign ages to mesh
+                mesh.point_data[system] = np.array(ages, dtype=dtype)
+            
+                # Save new mesh
+                mesh.save(filepath)
+                
+                # Purge the temp folder
+                with suppress(Exception):
+                    shutil.rmtree(temp_dir)
+                os.makedirs(temp_dir)
+    
+    # Delete cached values when all finished
+    os.remove(cache_path)
+    gc.collect()
+
+    return
     
 
 def run_tt_paths(temp_paths, tsteps, system, 
