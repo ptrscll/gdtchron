@@ -149,15 +149,15 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
     particle_tsteps = np.array([time_interval, 0])
 
     age, age_unc, he_tot, pos, v, x = \
-        he.forward_model(temps=particle_temps, 
-                         tsteps=particle_tsteps,
-                         system=system,
-                         u=u,
-                         th=th,
-                         radius=radius,
-                         nodes=he_profile_nodes,
-                         initial_x=profile.flatten(),
-                         return_all=True)
+        he.forward_model_he(temps=particle_temps, 
+                            tsteps=particle_tsteps,
+                            system=system,
+                            u=u,
+                            th=th,
+                            radius=radius,
+                            nodes=he_profile_nodes,
+                            initial_x=profile.flatten(),
+                            return_all=True)
     
     if calc_age:
         return (age, x)
@@ -359,11 +359,12 @@ def run_vtk(files, system, time_interval,
         Boolean indicating whether to overwrite old meshes that already have
         thermochronometric data for a given timestep. If False, this function
         skips timesteps that already have meshes and uses data from those meshes
-        for calculations in subsequent meshes.
+        for calculations in subsequent meshes. (defualt: False)
+        TODO: This doesn't currently work when False
 
     Returns
     -------
-    This function does not return any values.
+    This function does not return any values. TODO: Explain what it does tho
 
     """
     dtype = np.float32
@@ -493,7 +494,7 @@ def run_vtk(files, system, time_interval,
                 # Calculate ages if indicated or on last timestep
                 calc_age = all_timesteps or k == len(files) - 1
                 
-                prog_bar_txt = "Timestep " + str(k) + ":"
+                prog_bar_txt = "Timestep " + str(k)
                 
                 output = parallel(
                     delayed(particle_fn[system])
