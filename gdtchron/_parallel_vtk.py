@@ -10,10 +10,10 @@ import gc
 import os
 import shutil
 import warnings
+from contextlib import suppress
 
 import numpy as np
 import pyvista as pv
-from contextlib import suppress
 from joblib import Parallel, delayed
 from scipy.spatial import KDTree
 from tqdm import tqdm
@@ -304,13 +304,13 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
         return (age, r)
     
 
-def tchron_vtk_parallel(files, system, time_interval, 
-                        model_inputs,
-                        file_prefix='meshes_tchron', path='./', 
-                        temp_dir='~/dump',
-                        batch_size=100, processes=None,
-                        internal_len=513, interpolate_vals=True, 
-                        all_timesteps=True, overwrite=False):
+def run_vtk(files, system, time_interval, 
+            model_inputs,
+            file_prefix='meshes_tchron', path='./', 
+            temp_dir='~/dump',
+            batch_size=100, processes=None,
+            internal_len=513, interpolate_vals=True, 
+            all_timesteps=True, overwrite=False):
     """Perform parallel He or FT forward modeling of ASPECT VTK data.
 
     TODO
@@ -347,11 +347,11 @@ def tchron_vtk_parallel(files, system, time_interval,
     internal_len : int <-- TODO: Move this to model_inputs
         Number of nodes within the grain (for He) (default: 513). Unused for FT 
         system
-    interpolate_profile : bool
-        Boolean indicating whether to interpolate He data from nearest neighbor
-        of the particle if the particle itself lacks He data. If False and the
-        particle is missing He data, an age of np.nan and a profile filled with 
-        np.inf are returned. (default: True)
+    interpolate_vals : bool
+        Boolean indicating whether to interpolate particle data from nearest 
+        neighbor if the particle itself lacks He data. If False and the
+        particle is missing data, an age of np.nan is returned for that 
+        particle. (default: True)
     all_timesteps : bool
         Boolean indicating whether to calculate ages at each tstep 
         (default: True)
@@ -363,15 +363,12 @@ def tchron_vtk_parallel(files, system, time_interval,
     This function does not return any values.
 
     """
-    dtype=np.float32
+    dtype = np.float32
     
     if processes is None:
         processes = os.cpu_count() - 2
     
-    if batch_size == 'auto':
-        pre_dispatch = 2*processes
-    else:
-        pre_dispatch = 2*batch_size
+    pre_dispatch = 2 * processes if batch_size == 'auto' else 2 * batch_size
     
     particle_fn = {'AHe': run_particle_he,
                 'ZHe': run_particle_he,
@@ -380,10 +377,8 @@ def tchron_vtk_parallel(files, system, time_interval,
     # Path for temporary memory dumps
     temp_dir = os.path.expanduser(temp_dir)
     
-    try:
+    with suppress(Exception):
         shutil.rmtree(temp_dir)
-    except:
-        pass
     
     os.makedirs(temp_dir)
     
@@ -402,15 +397,13 @@ def tchron_vtk_parallel(files, system, time_interval,
         for k, file in enumerate(files):  
             
             filename = file_prefix + '_' + str(k).zfill(3) + '.vtu'
-            filepath = os.path.join(new_dir,filename)
+            filepath = os.path.join(new_dir, filename)
             
             # Check if target mesh already exists and no overwrite
             if os.path.exists(filepath) and not overwrite:
                 # Check if system in that mesh
                 old_mesh = pv.read(filepath)
                 if system in old_mesh.point_data:                
-                    print('Timestep ' + str(k) + ' Previously Run')
-                    
                     # Check for the next target mesh
                     next_filename = file_prefix + '_' + str(k + 1).zfill(3) + '.vtu'
                     next_filepath = os.path.join(new_dir, next_filename)
@@ -419,23 +412,23 @@ def tchron_vtk_parallel(files, system, time_interval,
                     # load values from cache
                     next_mesh_exists = os.path.exists(next_filepath)
                     if (not next_mesh_exists) or \
-                        (not system in pv.read(next_filepath).point_data):
-                        print('Loading from Cache')
+                        (system not in pv.read(next_filepath).point_data):
                         ids = old_mesh['id']
                         positions = old_mesh.points
-                        temps=old_mesh['T']
+                        temps = old_mesh['T']
                         new_internal_vals = np.load(cache_path)
                     continue
                    
             mesh = pv.read(file)
             
-            if k==0:
+            if k == 0:
 
                 num_particles = len(mesh['T'])
 
                 # Set up empty arrays for first timestep
                 if system == "AFT":
-                    internal_len = len(files) - 1 # -1 is to account for missing tstep from using averages
+                    # -1 is to account for missing tstep from using averages
+                    internal_len = len(files) - 1 
                 new_internal_vals = np.empty((num_particles, internal_len), 
                                              dtype=dtype)
                 new_internal_vals.fill(np.nan)
@@ -445,17 +438,17 @@ def tchron_vtk_parallel(files, system, time_interval,
                 ages = np.zeros(num_particles)
                 mesh[system] = ages
                 mesh.save(filepath)
-            elif k>0:  
+            elif k > 0:  
                 old_internal_vals = new_internal_vals
 
-                old_ids = ids # Get ids for previous internal values
+                old_ids = ids  # Get ids for previous internal values
                 old_positions = positions
                 old_temps = temps
 
             temps = mesh['T']
             
             gc.collect()
-            if k in np.arange(5,len(files),5):
+            if k in np.arange(5, len(files), 5):
                 shutil.rmtree(temp_dir)
                 os.makedirs(temp_dir)
             
@@ -466,7 +459,7 @@ def tchron_vtk_parallel(files, system, time_interval,
             if k > 0:
             
                 # Set up KDTree for timestep if doing interpolation
-                if interpolate_vals==True:
+                if interpolate_vals:
                     
                     # Get particle ids of particles with internal_vals
                     has_vals = ~np.isnan(old_internal_vals).all(axis=1)
@@ -480,34 +473,28 @@ def tchron_vtk_parallel(files, system, time_interval,
                     if k == 1:
                         other_particles = old_ids
                         other_positions = old_positions
-
                     
                     # Set up KDTree to find closest particle
                     tree = KDTree(other_positions)
                     
                 else:
-                    tree=None
-                    other_particles=None
+                    tree = None
+                    other_particles = None
                     
                 inputs = (k, positions, tree, 
                         ids, old_ids, temps, old_temps, old_internal_vals,
                         time_interval, other_particles,
                         system, internal_len, model_inputs)
                     
-                # Calculate ages on last timestep only if indicated
-                if all_timesteps==True: 
-                    calc_age=True
-                elif k==len(files)-1:
-                    calc_age=True
-                else:
-                    calc_age=False
+                # Calculate ages if indicated or on last timestep
+                calc_age = all_timesteps or k == len(files) - 1
                 
-                print('Caluclating Internal Values for Timestep ', k, '...')
+                prog_bar_txt = "Timestep " + str(k) + ":"
                 
                 output = parallel(
                     delayed(particle_fn[system])
                     (particle, inputs, calc_age, interpolate_vals)
-                    for particle in tqdm(ids, position=0)
+                    for particle in tqdm(ids, position=0, desc=prog_bar_txt)
                     )
                 
                 ages, new_internal_vals = zip(*output)
