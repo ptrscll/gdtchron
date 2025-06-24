@@ -317,8 +317,8 @@ def run_vtk(files, system, time_interval,
     
     Parameters
     ----------
-    files : list of TODO
-        List of vtu files to run forward model on
+    files : list of strings
+        List of paths to vtu files to run forward model on
     system : string
         Isotopic system to model. Current options are:
             'AHe': Apatite (U-Th) / He
@@ -331,9 +331,9 @@ def run_vtk(files, system, time_interval,
         For He model: (U, Th, radius) (ex: (U=100,Th=100,radius=50))
         For FT model: (constants, Dpar) (e.g, (AFT.Kecham_99_FC, 1.75))
     file_prefix : string
-        Prefix to give output files
+        Prefix to give output files (default: 'meshes_tchron')
     path : string
-        Path to output directory
+        Path to output directory (default: './')
     temp_dir : string
         Path to temporary output directory
     batch_size : int or 'auto', optional
@@ -356,7 +356,10 @@ def run_vtk(files, system, time_interval,
         Boolean indicating whether to calculate ages at each tstep 
         (default: True)
     overwrite : bool
-        TODO
+        Boolean indicating whether to overwrite old meshes that already have
+        thermochronometric data for a given timestep. If False, this function
+        skips timesteps that already have meshes and uses data from those meshes
+        for calculations in subsequent meshes.
 
     Returns
     -------
@@ -405,7 +408,8 @@ def run_vtk(files, system, time_interval,
                 old_mesh = pv.read(filepath)
                 if system in old_mesh.point_data:                
                     # Check for the next target mesh
-                    next_filename = file_prefix + '_' + str(k + 1).zfill(3) + '.vtu'
+                    next_filename = file_prefix + '_' + str(k + 1).zfill(3) + \
+                        '.vtu'
                     next_filepath = os.path.join(new_dir, next_filename)
                     
                     # If next mesh does not exist or does not have the system,
