@@ -295,7 +295,9 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
         r_so_far = aft.dpar_conversion(r_mr=r[~np.isnan(r)], 
                                        dpar=dpar, 
                                        constants=constants)
-        tsteps = np.arange(k * time_interval, -0.1, -1 * time_interval)
+        tsteps = np.arange(start=k * time_interval, 
+                           stop=-1 * time_interval, 
+                           step=-1 * time_interval)
         age = aft.calc_aft_age(r_so_far, tsteps)
         return (age, r)
         
