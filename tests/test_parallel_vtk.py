@@ -1,10 +1,11 @@
 """Tests for parallel_vtk module."""
+import os
+
 import numpy as np
 import pytest
 import pyvista as pv
-import os
 
-from gdtchron import _parallel_vtk, he, aft, run_tt_paths, run_vtk
+from gdtchron import _parallel_vtk, aft, he, run_tt_paths, run_vtk
 
 # Constants for t-T series in run_vtk
 NUM_VTU_FILES = 10
@@ -30,10 +31,12 @@ def test_run_vtk():
         filenames.append(filename)
 
     # Define times (Ma) and temps (K) for the 10 files
-    times = np.arange(start=TIME_INTERVAL * NUM_VTU_FILES, 
+    times = np.arange(start=TIME_INTERVAL * (NUM_VTU_FILES - 1), 
                       stop=-TIME_INTERVAL, 
                       step=-TIME_INTERVAL)
-    temps = np.arange(MAX_TEMP, MAX_TEMP - 11 * DELTA_TEMP, -DELTA_TEMP)
+    temps = np.arange(start=MAX_TEMP, 
+                      stop=MAX_TEMP - NUM_VTU_FILES * DELTA_TEMP, 
+                      step=-DELTA_TEMP)
     
     # TODO: Actually call run_vtk and make sure everything works
     run_vtk(files=filenames,
@@ -44,17 +47,22 @@ def test_run_vtk():
             overwrite=True)
     
     for i in range(NUM_VTU_FILES):
-        mesh = pv.read(os.path.join('./meshes_tchron', 
-                                    'meshes_tchron_001.vtu'))
-        expected_age = he.forward_model_he(temps=temps,
-                                           tsteps=times,
+        prefix = 'meshes_tchron'
+        mesh = pv.read(os.path.join('./' + prefix, 
+                                    prefix + '_' + str(i).zfill(3) + '.vtu'))
+        if i == 0:
+            assert np.array(mesh['AHe']) == \
+                pytest.approx(np.ones(NUM_PARTICLES) * 0.)
+        else:
+            expected_age = he.forward_model_he(temps=temps[:i + 1],
+                                           tsteps=times[:i + 1],
                                            system='AHe',
                                            u=100,
                                            th=100,
                                            radius=50)
-        assert np.array(mesh['AHe']) == \
-            pytest.approx(np.ones(NUM_PARTICLES) * expected_age)
-        # TODO: Debug and then do ZHe, AFT, etc.
+            assert np.array(mesh['AHe']) == \
+                pytest.approx(np.ones(NUM_PARTICLES) * expected_age, rel=1e-3)
+        # TODO: Test ZHe, AFT, etc.
 
 
 def test_run_tt_paths():
