@@ -310,12 +310,11 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
     
 
 def run_vtk(files, system, time_interval, 
-            u=100, th=100, radius=50,
+            u=100, th=100, radius=50, num_nodes=513,
             dpar=1.75, annealing_model='Ketcham99',
             file_prefix='meshes_tchron', path='./', 
             temp_dir='~/dump',
-            batch_size=100, processes=None,
-            internal_len=513, interpolate_vals=True, 
+            batch_size=100, processes=None, interpolate_vals=True, 
             all_timesteps=True, overwrite=False):
     """Perform parallel He or FT forward modeling of ASPECT VTK data.
 
@@ -338,6 +337,9 @@ def run_vtk(files, system, time_interval,
     th : float, optional
         Th concentration (ppm). Default is 100 ppm. Only used if system is 'AHe'
         or 'ZHe'.
+    num_nodes : int 
+        Number of nodes within the grain (for He) (default: 513). Unused for FT 
+        system
     radius : float, optional
         Radius of the grain (micrometers). Default is 50 micrometers. Only used 
         if system is 'AHe' or 'ZHe'.
@@ -363,9 +365,6 @@ def run_vtk(files, system, time_interval,
         Maximum number of processes that can run concurrently. If None, this
         parameter is internally set to two less than the number of CPUs on the
         user's system (default: None).
-    internal_len : int <-- TODO: Move this to model_inputs
-        Number of nodes within the grain (for He) (default: 513). Unused for FT 
-        system
     interpolate_vals : bool
         Boolean indicating whether to interpolate particle data from nearest 
         neighbor if the particle itself lacks He data. If False and the
@@ -452,9 +451,11 @@ def run_vtk(files, system, time_interval,
                 num_particles = len(mesh['T'])
 
                 # Set up empty arrays for first timestep
-                if system == "AFT":
-                    # -1 is to account for missing tstep from using averages
-                    internal_len = len(files) - 1 
+                # For AFT system, can use number of files to determine array len
+                # -1 is to account for missing tstep from using averages
+                # For He system, we just use the input num_nodes
+                internal_len = len(files) - 1 if system == "AFT" else num_nodes
+
                 new_internal_vals = np.empty((num_particles, internal_len), 
                                              dtype=dtype)
                 new_internal_vals.fill(np.nan)
