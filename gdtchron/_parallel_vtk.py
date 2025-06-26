@@ -209,7 +209,9 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
     # Unpack inputs
     (k, positions, tree, ids, old_ids, temps, old_temps, old_annealing_arrays,
      time_interval, other_particles,
-     system, r_length, (constants, dpar)) = inputs
+     system, r_length, (dpar, annealing_model)) = inputs
+    
+    ft_constants = {'Ketcham99': aft.KETCHAM_99_FC}
     
     # Get old profile and temperature for current particle if present
     r_initial = old_annealing_arrays[particle_id == old_ids]
@@ -289,14 +291,15 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
     # we just need to maintain difference between start and end times
     # (start time > end time because the function measures time in yrs BP)
     r = aft.calc_annealing(r_initial, particle_temp, start=time_interval, 
-                           end=0, next_nan_index=k - 1, constants=constants)
+                           end=0, next_nan_index=k - 1, 
+                           constants=ft_constants[annealing_model])
 
     if calc_age:
         r_so_far = aft.dpar_conversion(r_mr=r[~np.isnan(r)], 
                                        dpar=dpar, 
-                                       constants=constants)
+                                       constants=ft_constants[annealing_model])
         tsteps = np.arange(start=k * time_interval, 
-                           stop=-1 * time_interval, 
+                           stop=-0.5 * time_interval, 
                            step=-1 * time_interval)
         age = aft.calc_aft_age(r_so_far, tsteps)
         return (age, r)
@@ -307,7 +310,8 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
     
 
 def run_vtk(files, system, time_interval, 
-            model_inputs,
+            u=100, th=100, radius=50,
+            dpar=1.75, annealing_model='Ketcham99',
             file_prefix='meshes_tchron', path='./', 
             temp_dir='~/dump',
             batch_size=100, processes=None,
@@ -328,10 +332,23 @@ def run_vtk(files, system, time_interval,
             'AFT': Apatite Fission Track
     time_interval : float
         Interval (Myrs) between times when each mesh was produced
-    model_inputs : tuple
-        TODO: Update (and add support for submitting annealing model via str)
-        For He model: (U, Th, radius) (ex: (U=100,Th=100,radius=50))
-        For FT model: (constants, Dpar) (e.g, (AFT.Kecham_99_FC, 1.75))
+    u : float, optional
+        U concentration (ppm). Default is 100 ppm. Only used if system is 'AHe'
+        or 'ZHe'.
+    th : float, optional
+        Th concentration (ppm). Default is 100 ppm. Only used if system is 'AHe'
+        or 'ZHe'.
+    radius : float, optional
+        Radius of the grain (micrometers). Default is 50 micrometers. Only used 
+        if system is 'AHe' or 'ZHe'.
+    dpar : float, optional
+        Etch figure length (micrometers). Default is 1.75 micrometers. Only used
+        if system is 'AFT'.
+    annealing_model : string, optional
+        Annealing model to use. Currently, the only acceptable value is
+        'Ketcham99', which corresponds to the fanning curvilinear model from
+        Ketcham et al. (1999). Default is 'Ketcham99'. Only used if system is
+        'AFT'.
     file_prefix : string
         Prefix to give output files (default: 'meshes_tchron')
     path : string
@@ -363,6 +380,8 @@ def run_vtk(files, system, time_interval,
         skips timesteps that already have meshes and uses data from those meshes
         for calculations in subsequent meshes. (defualt: False)
         TODO: This doesn't currently work when False
+        TODO: Also want to generally be able to write multiple ages to same mesh
+        (this is not supported atm - maybe make a GH Issue about it)
 
     Returns
     -------
@@ -487,6 +506,11 @@ def run_vtk(files, system, time_interval,
                 else:
                     tree = None
                     other_particles = None
+
+                if system == 'AFT':
+                    model_inputs = (dpar, annealing_model)
+                else:
+                    model_inputs = (u, th, radius)
                     
                 inputs = (k, positions, tree, 
                         ids, old_ids, temps, old_temps, old_internal_vals,
