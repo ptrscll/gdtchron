@@ -178,8 +178,8 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
     particle_id : int
         ID corresponding to the particle to get the reduced lengths of
     inputs : tuple
-        k : TODO
-            TODO
+        k : int
+            Index of the current timestep/mesh being processed.
         positions : TODO
             Locations of each particle
         tree : scipy.spatial.KDTree
@@ -318,12 +318,15 @@ def run_vtk(files, system, time_interval,
             all_timesteps=True, overwrite=False):
     """Perform parallel He or FT forward modeling of ASPECT VTK data.
 
-    TODO
+    This code performs forward modeling of the AHe, ZHe, or AFT systems
+    across ASPECT VTK data. Data is output as .vtu folders in a new
+    directory, with data for every timestep given. 
     
     Parameters
     ----------
     files : list of strings
-        List of paths to vtu files to run forward model on
+        List of paths to vtu files to run forward model on. Files are
+        processed in the order they are given in the list.
     system : string
         Isotopic system to model. Current options are:
             'AHe': Apatite (U-Th) / He
@@ -384,7 +387,7 @@ def run_vtk(files, system, time_interval,
 
     Returns
     -------
-    This function does not return any values. TODO: Explain what it does tho
+    This function does not return any values.
 
     """
     dtype = np.float32
