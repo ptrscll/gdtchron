@@ -32,37 +32,57 @@ def test_run_vtk():
 
     # Define times (Ma) and temps (K) for the 10 files
     times = np.arange(start=TIME_INTERVAL * (NUM_VTU_FILES - 1), 
-                      stop=-TIME_INTERVAL, 
+                      stop=-0.5 * TIME_INTERVAL, 
                       step=-TIME_INTERVAL)
     temps = np.arange(start=MAX_TEMP, 
-                      stop=MAX_TEMP - NUM_VTU_FILES * DELTA_TEMP, 
+                      stop=MAX_TEMP - (NUM_VTU_FILES - 0.5) * DELTA_TEMP, 
                       step=-DELTA_TEMP)
     
     # TODO: Actually call run_vtk and make sure everything works
     run_vtk(files=filenames,
             system='AHe',
             time_interval=TIME_INTERVAL,
-            model_inputs=(100, 100, 50),
-            file_prefix='meshes_tchron',
+            file_prefix='meshes_AHe',
+            overwrite=True)
+    
+    run_vtk(files=filenames,
+            system='ZHe',
+            time_interval=TIME_INTERVAL,
+            file_prefix='meshes_ZHe',
+            overwrite=True)
+
+    run_vtk(files=filenames,
+            system='AFT',
+            time_interval=TIME_INTERVAL,
+            file_prefix='meshes_AFT',
             overwrite=True)
     
     for i in range(NUM_VTU_FILES):
-        prefix = 'meshes_tchron'
-        mesh = pv.read(os.path.join('./' + prefix, 
-                                    prefix + '_' + str(i).zfill(3) + '.vtu'))
-        if i == 0:
-            assert np.array(mesh['AHe']) == \
-                pytest.approx(np.ones(NUM_PARTICLES) * 0.)
-        else:
-            expected_age = he.forward_model_he(temps=temps[:i + 1],
-                                           tsteps=times[:i + 1],
-                                           system='AHe',
-                                           u=100,
-                                           th=100,
-                                           radius=50)
-            assert np.array(mesh['AHe']) == \
-                pytest.approx(np.ones(NUM_PARTICLES) * expected_age, rel=1e-3)
-        # TODO: Test ZHe, AFT, etc.
+        prefix = 'meshes_'
+        suffix = '_' + str(i).zfill(3) + '.vtu'
+
+        # Test all systems
+        for sys in ['AHe', 'ZHe', 'AFT']:
+            mesh = pv.read(os.path.join('./' + prefix + sys, 
+                                        prefix + sys + suffix))
+            if i == 0:
+                assert np.array(mesh[sys]) == \
+                    pytest.approx(np.ones(NUM_PARTICLES) * 0.)
+            else:
+                if sys[1:] == 'He':
+                    expected_age = he.forward_model_he(temps=temps[:i + 1],
+                                                tsteps=times[:i + 1],
+                                                system=sys,
+                                                u=100,
+                                                th=100,
+                                                radius=50)
+                else:
+                    expected_age = aft.forward_model_aft(temps=temps[:i + 1],
+                                                         tsteps=times[:i + 1],
+                                                         dpar=1.75)
+                assert np.array(mesh[sys]) == \
+                    pytest.approx(np.ones(NUM_PARTICLES) * expected_age, 
+                                  rel=1e-3)
 
 
 def test_run_tt_paths():
