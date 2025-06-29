@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import pyvista as pv
 
-from gdtchron import _parallel_vtk, aft, he, run_tt_paths, run_vtk
+from gdtchron import aft, he, run_tt_paths, run_vtk
 
 # Constants for t-T series in run_vtk
 NUM_VTU_FILES = 10
