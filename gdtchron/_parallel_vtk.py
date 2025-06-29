@@ -196,7 +196,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
         return (age, x)
     
 
-def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):  
+def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):  
     """Calculate FT reduced lengths for a particular ASPECT particle.
 
     Function to calculate the reduced lengths (unitless) within a hypothetical 
@@ -214,7 +214,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
             x, y, z coordinates of each particle
         tree : scipy.spatial._kdtree.KDTree or None
             K-d tree containing the positions of particles from the previous
-            timestep. Unused (and typically set to None) if interpolate_profile
+            timestep. Unused (and typically set to None) if interpolate_vals
             is False.
         ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
             IDs for all particles from the current timestep
@@ -230,7 +230,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
             Time elapsed between mesh files (Myr)
         other_particles : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
             IDs for all particles with profiles from the previous timestep. Not
-            used (and typically set to False) if interpolate_profile is True.
+            used (and typically set to False) if interpolate_vals is True.
             TODO: Rename and put in more sensible order
         system : string
             Isotopic system to model. Not used for FT system (but included as a
@@ -247,12 +247,11 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
     calc_age : bool
         Boolean indicating whether to calculate age of particle. If False,
         age is returned as np.nan.
-    interpolate_profile : bool
+    interpolate_vals : bool
         Boolean indicating whether to interpolate FT data from nearest neighbor
         of the particle if the particle itself lacks FT data. If False and the
         particle is missing FT data, an age of np.nan and a profile filled with 
         np.inf are returned.
-        TODO: Rename
 
     Returns
     -------
@@ -308,7 +307,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
     
     if missing:
         
-        if interpolate_profile:
+        if interpolate_vals:
         
             # Get particle position
             particle_position = positions[ids == particle_id]
@@ -334,7 +333,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
             particle_start_temp = old_temps[neighbor_id == old_ids]
         
         # If turned off, return np.nan
-        elif not interpolate_profile:
+        elif not interpolate_vals:
             x = np.empty(r_length, dtype=dtype)
             x.fill(dtype(np.inf))
             age = np.nan
