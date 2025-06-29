@@ -48,6 +48,9 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
             IDs for all particles from the current timestep
         old_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
             IDs for all particles from the previous timestep
+        tree_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
+            IDs for all particles with profiles from the previous timestep. Not
+            used and typically set to None if interpolate_profile is True
         temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
             Temperatures for all particles from the current timestep
         old_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
@@ -56,10 +59,6 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
             Profiles of x values for all particles.
         time_interval : float
             Time elapsed between mesh files (Myr)
-        other_particles : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
-            IDs for all particles with profiles from the previous timestep. Not
-            used and typically set to None if interpolate_profile is True
-            TODO: Rename and put in more sensible order
         system : string
             Isotopic system to model. Valid options are 'AHe' (apatite He) or
             'ZHe' (zircon He)
@@ -98,9 +97,8 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
 
     """
     # Unpack inputs
-    (k, positions, tree, ids, old_ids, temps, old_temps, old_profiles,
-     time_interval, other_particles,
-     system, num_nodes, (u, th, radius)) = inputs
+    (k, positions, tree, ids, old_ids, tree_ids, temps, old_temps, old_profiles,
+     time_interval, system, num_nodes, (u, th, radius)) = inputs
     
     # Get old profile and temperature for current particle if present
     array = old_profiles[particle_id == old_ids]
@@ -146,7 +144,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
             distance, index = tree.query(particle_position)
             
             # Get id of closest particle
-            neighbor_id = other_particles[index]
+            neighbor_id = tree_ids[index]
 
             # Get profile of closest particle
             try:
@@ -220,6 +218,9 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
             IDs for all particles from the current timestep
         old_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
             IDs for all particles from the previous timestep
+        tree_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
+            IDs for all particles with profiles from the previous timestep. Not
+            used (and typically set to False) if interpolate_vals is True.
         temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
             Temperatures for all particles from the current timestep
         old_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
@@ -228,10 +229,6 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
             r values for all particles from the previous timestep
         time_interval : float
             Time elapsed between mesh files (Myr)
-        other_particles : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
-            IDs for all particles with profiles from the previous timestep. Not
-            used (and typically set to False) if interpolate_vals is True.
-            TODO: Rename and put in more sensible order
         system : string
             Isotopic system to model. Not used for FT system (but included as a
             parameter for symmetry with run_particle_he)
@@ -267,9 +264,9 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
     dtype = np.float64
     
     # Unpack inputs
-    (k, positions, tree, ids, old_ids, temps, old_temps, old_annealing_arrays,
-     time_interval, other_particles,
-     system, r_length, (dpar, annealing_model)) = inputs
+    (k, positions, tree, ids, old_ids, tree_ids, temps, old_temps, 
+     old_annealing_arrays, time_interval, system, 
+     r_length, (dpar, annealing_model)) = inputs
     
     ft_constants = {'Ketcham99': aft.KETCHAM_99_FC}
     
@@ -316,7 +313,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
             distance, index = tree.query(particle_position)
             
             # Get id of closest particle
-            neighbor_id = other_particles[index]
+            neighbor_id = tree_ids[index]
             
             # Get profile of closest particle
             try:
@@ -553,7 +550,7 @@ def run_vtk(files, system, time_interval,
                     
                     # Get particle ids of particles with internal_vals
                     has_vals = ~np.isnan(old_internal_vals).all(axis=1)
-                    other_particles = old_ids[has_vals]
+                    tree_ids = old_ids[has_vals]
                     
                     # Get positions of other particles
                     other_positions = old_positions[has_vals]
@@ -561,7 +558,7 @@ def run_vtk(files, system, time_interval,
                     # Note: At k=0, all particles have internal_vals but
                     #       they're all set to NaN, so we need a special case
                     if k == 1:
-                        other_particles = old_ids
+                        tree_ids = old_ids
                         other_positions = old_positions
                     
                     # Set up KDTree to find closest particle
@@ -569,17 +566,16 @@ def run_vtk(files, system, time_interval,
                     
                 else:
                     tree = None
-                    other_particles = None
+                    tree_ids = None
 
                 if system == 'AFT':
                     model_inputs = (dpar, annealing_model)
                 else:
                     model_inputs = (u, th, radius)
                     
-                inputs = (k, positions, tree, 
-                        ids, old_ids, temps, old_temps, old_internal_vals,
-                        time_interval, other_particles,
-                        system, internal_len, model_inputs)
+                inputs = (k, positions, tree, ids, old_ids, tree_ids, 
+                          temps, old_temps, old_internal_vals,
+                          time_interval, system, internal_len, model_inputs)
                     
                 # Calculate ages if indicated or on last timestep
                 calc_age = all_timesteps or k == len(files) - 1
