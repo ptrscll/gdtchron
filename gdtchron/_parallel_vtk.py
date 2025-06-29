@@ -63,9 +63,8 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
         system : string
             Isotopic system to model. Valid options are 'AHe' (apatite He) or
             'ZHe' (zircon He)
-        he_profile_nodes : int
+        num_nodes : int
             Number of nodes to use within each profile
-            TODO: Rename
         model_inputs : tuple
             u : float
                 U concentration (ppm). 
@@ -101,7 +100,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
     # Unpack inputs
     (k, positions, tree, ids, old_ids, temps, old_temps, old_profiles,
      time_interval, other_particles,
-     system, he_profile_nodes, (u, th, radius)) = inputs
+     system, num_nodes, (u, th, radius)) = inputs
     
     # Get old profile and temperature for current particle if present
     array = old_profiles[particle_id == old_ids]
@@ -115,7 +114,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
     # particle), then return (NaN, initial array)
     # Otherwise, assign new value from old profile
     if array.size == 0:
-        profile = np.empty(he_profile_nodes, dtype=dtype)
+        profile = np.empty(num_nodes, dtype=dtype)
         profile.fill(np.nan)
         missing = True
     elif array[0][0] == dtype(np.inf):
@@ -129,7 +128,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
        
     # If particle not found, don't attempt to calculate profile or age
     if particle_end_temp.size == 0:            
-        x = np.empty(he_profile_nodes, dtype=dtype)
+        x = np.empty(num_nodes, dtype=dtype)
         x.fill(dtype(np.inf))
         age = np.nan
         return (age, x)
@@ -155,7 +154,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
             except Exception:
                 warnings.warn("Warning: likely multi-dimensional id", 
                               stacklevel=2)
-                x = np.empty(he_profile_nodes, dtype=dtype)
+                x = np.empty(num_nodes, dtype=dtype)
                 x.fill(dtype(np.inf))
                 age = np.nan
                 return (age, x)
@@ -165,7 +164,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
         
         # If turned off, return original profile of np.inf
         elif not interpolate_profile:
-            x = np.empty(he_profile_nodes, dtype=dtype)
+            x = np.empty(num_nodes, dtype=dtype)
             x.fill(dtype(np.inf))
             age = np.nan
             return (age, x)
@@ -186,7 +185,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
                             u=u,
                             th=th,
                             radius=radius,
-                            nodes=he_profile_nodes,
+                            nodes=num_nodes,
                             initial_x=profile.flatten(),
                             return_all=True)
     
