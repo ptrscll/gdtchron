@@ -38,10 +38,41 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
         k : any
             Unused parameter (included here for symmetry with the inputs of
             run_particle_aft)
-        positions : TODO
-            Locations of each particle
-        tree : scipy.spatial.KDTree
-            K-d tree ... TODO (and TODO: resume from here)
+        positions : pyvista.core.pyvista_ndarray.pyvista_ndarray
+            x, y, z coordinates of each particle
+        tree : scipy.spatial._kdtree.KDTree or None
+            K-d tree containing the positions of particles from the previous
+            timestep. Unused (and typically set to None) if interpolate_profile
+            is False.
+        ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
+            IDs for all particles from the current timestep
+        old_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
+            IDs for all particles from the previous timestep
+        temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
+            Temperatures for all particles from the current timestep
+        old_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
+            Temperatures for all particles from the previous timestep
+        old_profiles : NumPy ndarray of NumPy arrays of floats
+            Profiles of x values for all particles.
+        time_interval : float
+            Time elapsed between mesh files (Myr)
+        other_particles : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
+            IDs for all particles with profiles from the previous timestep. Not
+            used and typically set to None if interpolate_profile is True
+            TODO: Rename and put in more sensible order
+        system : string
+            Isotopic system to model. Valid options are 'AHe' (apatite He) or
+            'ZHe' (zircon He)
+        he_profile_nodes : int
+            Number of nodes to use within each profile
+            TODO: Rename
+        model_inputs : tuple
+            u : float
+                U concentration (ppm). 
+            th : float
+                Th concentration (ppm).
+            radius : float
+                Radius of the grain (micrometers).
     calc_age : bool
         Boolean indicating whether to calculate age of particle. If False,
         age is returned as np.nan. Note that setting this to False will not
@@ -180,18 +211,49 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_profile):
     inputs : tuple
         k : int
             Index of the current timestep/mesh being processed.
-        positions : TODO
-            Locations of each particle
-        tree : scipy.spatial.KDTree
-            K-d tree ... TODO (and TODO: resume from here)
+        positions : pyvista.core.pyvista_ndarray.pyvista_ndarray
+            x, y, z coordinates of each particle
+        tree : scipy.spatial._kdtree.KDTree or None
+            K-d tree containing the positions of particles from the previous
+            timestep. Unused (and typically set to None) if interpolate_profile
+            is False.
+        ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
+            IDs for all particles from the current timestep
+        old_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
+            IDs for all particles from the previous timestep
+        temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
+            Temperatures for all particles from the current timestep
+        old_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
+            Temperatures for all particles from the previous timestep
+        old_annealing_arrays : NumPy ndarray of NumPy arrays of floats
+            r values for all particles from the previous timestep
+        time_interval : float
+            Time elapsed between mesh files (Myr)
+        other_particles : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
+            IDs for all particles with profiles from the previous timestep. Not
+            used (and typically set to False) if interpolate_profile is True.
+            TODO: Rename and put in more sensible order
+        system : string
+            Isotopic system to model. Not used for FT system (but included as a
+            parameter for symmetry with run_particle_he)
+        r_length : int
+            Length of the r arrays for particles that have them
+        model_inputs : tuple       
+            dpar : float
+                Etch figure length (micrometers).
+            annealing_model : string
+                Annealing model to use. Currently, the only acceptable value is
+                'Ketcham99', which corresponds to the fanning curvilinear model 
+                from Ketcham et al. (1999).
     calc_age : bool
         Boolean indicating whether to calculate age of particle. If False,
         age is returned as np.nan.
     interpolate_profile : bool
-        Boolean indicating whether to interpolate He data from nearest neighbor
-        of the particle if the particle itself lacks He data. If False and the
-        particle is missing He data, an age of np.nan and a profile filled with 
+        Boolean indicating whether to interpolate FT data from nearest neighbor
+        of the particle if the particle itself lacks FT data. If False and the
+        particle is missing FT data, an age of np.nan and a profile filled with 
         np.inf are returned.
+        TODO: Rename
 
     Returns
     -------
