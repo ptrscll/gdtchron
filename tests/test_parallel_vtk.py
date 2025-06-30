@@ -10,26 +10,29 @@ from gdtchron import aft, he, run_tt_paths, run_vtk
 # Constants for t-T series in run_vtk
 NUM_VTU_FILES = 10
 NUM_PARTICLES = 16
+X_DIM = 4
+Y_DIM = 4
 TIME_INTERVAL = 0.2  # Myr
 MAX_TEMP = 400.
 DELTA_TEMP = 10.
 
-# TODO: Test interpolation
 # TODO: Test overwriting
 # TODO: Test using same mesh for multiple systems
 # TODO: Test particle functions
 
 
 def test_run_vtk():
-    """Unit tests for run_vtk."""
+    """Unit tests for basic functionality of run_vtk."""
     # Generate dummy VTK files for testing
     filenames = []
     for x in range(NUM_VTU_FILES):
         # Create very small mesh with 16 points and assign each an id and temp 
-        mesh = pv.ImageData(dimensions=(4, 4, 1)).cast_to_unstructured_grid()
+        mesh = pv.ImageData(dimensions=(X_DIM, 
+                                        Y_DIM, 
+                                        1)).cast_to_unstructured_grid()
         mesh['id'] = np.arange(NUM_PARTICLES)
         # Make temperature the same for all points so it cools over time
-        mesh['T'] = MAX_TEMP - (x * DELTA_TEMP * np.ones(16))
+        mesh['T'] = MAX_TEMP - (x * DELTA_TEMP * np.ones(NUM_PARTICLES))
 
         filename = 'file_' + str(x) + '.vtu'
         mesh.save(filename)
@@ -87,6 +90,94 @@ def test_run_vtk():
                 assert np.array(mesh[sys]) == \
                     pytest.approx(np.ones(NUM_PARTICLES) * expected_age, 
                                   rel=1e-3)
+                
+
+def test_run_vtk_interpolate():
+    """Unit tests for basic functionality of run_vtk."""
+    # Generate dummy VTK files for testing
+    filenames = []
+    for x in range(NUM_VTU_FILES):
+        # Create very small mesh with 16 points and assign each an id and temp 
+        mesh = pv.ImageData(dimensions=(4, 4, 1)).cast_to_unstructured_grid()
+        if x < NUM_VTU_FILES - 1:
+            mesh['id'] = np.arange(NUM_PARTICLES)
+        else:
+            mesh['id'] = np.arange(NUM_PARTICLES, NUM_PARTICLES * 2)
+        # Make temperature the same for all but one point
+        mesh['T'] = np.append(MAX_TEMP - (x * DELTA_TEMP * np.ones(15)), 
+                              MAX_TEMP)
+
+        filename = 'file_interp_' + str(x) + '.vtu'
+        mesh.save(filename)
+        filenames.append(filename)
+    
+
+    # Define times (Ma) and temps (K) for the 10 files
+    times = np.arange(start=TIME_INTERVAL * (NUM_VTU_FILES - 1), 
+                      stop=-0.5 * TIME_INTERVAL, 
+                      step=-TIME_INTERVAL)
+    temps = np.arange(start=MAX_TEMP, 
+                      stop=MAX_TEMP - (NUM_VTU_FILES - 0.5) * DELTA_TEMP, 
+                      step=-DELTA_TEMP)
+    
+    # Temps for the last particle
+    last_temps = np.ones(NUM_VTU_FILES) * MAX_TEMP
+    
+    run_vtk(files=filenames,
+            system='AHe',
+            time_interval=TIME_INTERVAL,
+            file_prefix='meshes_AHe_int',
+            overwrite=True)
+    
+    run_vtk(files=filenames,
+            system='ZHe',
+            time_interval=TIME_INTERVAL,
+            file_prefix='meshes_ZHe_int',
+            overwrite=True)
+
+    run_vtk(files=filenames,
+            system='AFT',
+            time_interval=TIME_INTERVAL,
+            file_prefix='meshes_AFT_int',
+            overwrite=True)
+    
+    for i in range(NUM_VTU_FILES):
+        prefix = 'meshes_'
+        suffix = '_int_' + str(i).zfill(3) + '.vtu'
+
+        # Test all systems
+        for sys in ['AHe', 'ZHe', 'AFT']:
+            mesh = pv.read(os.path.join('./' + prefix + sys + '_int', 
+                                        prefix + sys + suffix))
+            if i == 0:
+                assert np.array(mesh[sys]) == \
+                    pytest.approx(np.ones(NUM_PARTICLES) * 0.)
+            else:
+                if sys[1:] == 'He':
+                    expected_age = he.forward_model_he(temps=temps[:i + 1],
+                                                       tsteps=times[:i + 1],
+                                                       system=sys,
+                                                       u=100,
+                                                       th=100,
+                                                       radius=50)
+                    last_age = he.forward_model_he(temps=last_temps[:i + 1],
+                                                   tsteps=times[:i + 1],
+                                                   system=sys,
+                                                   u=100,
+                                                   th=100,
+                                                   radius=50)
+                else:
+                    expected_age = aft.forward_model_aft(temps=temps[:i + 1],
+                                                         tsteps=times[:i + 1],
+                                                         dpar=1.75)
+                    last_age = aft.forward_model_aft(temps=last_temps[:i + 1],
+                                                     tsteps=times[:i + 1],
+                                                     dpar=1.75)
+                assert np.array(mesh[sys])[:-1] == \
+                    pytest.approx(np.ones(NUM_PARTICLES - 1) * expected_age, 
+                                  rel=1e-3)
+                assert np.array(mesh[sys][-1]) == pytest.approx(last_age, 
+                                                                rel=5e-2)
 
 
 def test_run_tt_paths():
