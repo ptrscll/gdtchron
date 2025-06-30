@@ -14,6 +14,11 @@ TIME_INTERVAL = 0.2  # Myr
 MAX_TEMP = 400.
 DELTA_TEMP = 10.
 
+# TODO: Test interpolation
+# TODO: Test overwriting
+# TODO: Test using same mesh for multiple systems
+# TODO: Test particle functions
+
 
 def test_run_vtk():
     """Unit tests for run_vtk."""
@@ -38,7 +43,6 @@ def test_run_vtk():
                       stop=MAX_TEMP - (NUM_VTU_FILES - 0.5) * DELTA_TEMP, 
                       step=-DELTA_TEMP)
     
-    # TODO: Actually call run_vtk and make sure everything works
     run_vtk(files=filenames,
             system='AHe',
             time_interval=TIME_INTERVAL,
