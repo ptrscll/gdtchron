@@ -19,7 +19,6 @@ MAX_TEMP = 400.
 DELTA_TEMP = 10.
 
 # TODO: Test overwriting
-# TODO: Test using same mesh for multiple systems
 # TODO: Test particle functions
 
 
@@ -48,32 +47,32 @@ def test_run_vtk():
                       stop=MAX_TEMP - (NUM_VTU_FILES - 0.5) * DELTA_TEMP, 
                       step=-DELTA_TEMP)
     
+    # Test using the same mesh for data from multiple systems
     run_vtk(files=filenames,
             system='AHe',
             time_interval=TIME_INTERVAL,
-            file_prefix='meshes_AHe',
+            file_prefix='meshes_tchron',
             overwrite=True)
     
     run_vtk(files=filenames,
             system='ZHe',
             time_interval=TIME_INTERVAL,
-            file_prefix='meshes_ZHe',
+            file_prefix='meshes_tchron',
             overwrite=True)
 
     run_vtk(files=filenames,
             system='AFT',
             time_interval=TIME_INTERVAL,
-            file_prefix='meshes_AFT',
+            file_prefix='meshes_tchron',
             overwrite=True)
     
     for i in range(NUM_VTU_FILES):
-        prefix = 'meshes_'
+        prefix = 'meshes_tchron'
         suffix = '_' + str(i).zfill(3) + '.vtu'
+        mesh = pv.read(os.path.join('./' + prefix, prefix + suffix))
 
         # Test all systems
         for sys in ['AHe', 'ZHe', 'AFT']:
-            mesh = pv.read(os.path.join('./' + prefix + sys, 
-                                        prefix + sys + suffix))
             if i == 0:
                 assert np.array(mesh[sys]) == \
                     pytest.approx(np.ones(NUM_PARTICLES) * 0.)
