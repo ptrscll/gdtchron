@@ -1,5 +1,7 @@
 """Tests for parallel_vtk module."""
 import os
+import shutil
+from contextlib import suppress
 
 import numpy as np
 import pytest
@@ -8,7 +10,7 @@ import pyvista as pv
 from gdtchron import aft, he, run_tt_paths, run_vtk
 
 # Constants for t-T series in run_vtk
-NUM_VTU_FILES = 10
+NUM_VTU_FILES = 10  # Must be at least 3
 NUM_PARTICLES = 16
 X_DIM = 4
 Y_DIM = 4
@@ -92,14 +94,20 @@ def test_run_vtk():
                                   rel=1e-3)
                 
 
-def test_run_vtk_interpolate():
-    """Unit tests for basic functionality of run_vtk."""
+def test_run_vtk_interpolate_no_overwrite():
+    """Unit tests for interpolation and not using overwriting with run_vtk."""
+    # Delete old directories
+    prefix = 'meshes_'
+    for sys in ['AHe', 'ZHe', 'AFT']:
+        with suppress(Exception):
+            shutil.rmtree('./' + prefix + sys + '_int')
+
     # Generate dummy VTK files for testing
     filenames = []
     for x in range(NUM_VTU_FILES):
         # Create very small mesh with 16 points and assign each an id and temp 
         mesh = pv.ImageData(dimensions=(4, 4, 1)).cast_to_unstructured_grid()
-        if x < NUM_VTU_FILES - 1:
+        if x == 3:
             mesh['id'] = np.arange(NUM_PARTICLES)
         else:
             mesh['id'] = np.arange(NUM_PARTICLES, NUM_PARTICLES * 2)
@@ -110,7 +118,6 @@ def test_run_vtk_interpolate():
         filename = 'file_interp_' + str(x) + '.vtu'
         mesh.save(filename)
         filenames.append(filename)
-    
 
     # Define times (Ma) and temps (K) for the 10 files
     times = np.arange(start=TIME_INTERVAL * (NUM_VTU_FILES - 1), 
@@ -123,26 +130,26 @@ def test_run_vtk_interpolate():
     # Temps for the last particle
     last_temps = np.ones(NUM_VTU_FILES) * MAX_TEMP
     
-    run_vtk(files=filenames,
+    # Test interpolation (with overwriting)
+    run_vtk(files=filenames[:NUM_VTU_FILES // 2],
             system='AHe',
             time_interval=TIME_INTERVAL,
             file_prefix='meshes_AHe_int',
             overwrite=True)
     
-    run_vtk(files=filenames,
+    run_vtk(files=filenames[:NUM_VTU_FILES // 2],
             system='ZHe',
             time_interval=TIME_INTERVAL,
             file_prefix='meshes_ZHe_int',
             overwrite=True)
 
-    run_vtk(files=filenames,
+    run_vtk(files=filenames[:NUM_VTU_FILES // 2],
             system='AFT',
             time_interval=TIME_INTERVAL,
             file_prefix='meshes_AFT_int',
             overwrite=True)
     
-    for i in range(NUM_VTU_FILES):
-        prefix = 'meshes_'
+    for i in range(NUM_VTU_FILES // 2):
         suffix = '_int_' + str(i).zfill(3) + '.vtu'
 
         # Test all systems
