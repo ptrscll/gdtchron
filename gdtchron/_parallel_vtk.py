@@ -488,27 +488,24 @@ def run_vtk(files, system, time_interval,
 
                 # If the mesh only has data from other systems, set that mesh
                 # as our output mesh (to avoid overwriting other system data)
-                if system not in original_mesh.point_data:
+                if overwrite or system not in original_mesh.point_data:
                     mesh = original_mesh
-                else:
-                    if not overwrite:            
-                        # Check for the next target mesh
-                        next_filename = file_prefix + '_' + \
-                            str(k + 1).zfill(3) + '.vtu'
-                        next_filepath = os.path.join(new_dir, next_filename)
-                        
-                        # If next mesh does not exist or does not have the 
-                        # system, load values from cache
-                        next_mesh_exists = os.path.exists(next_filepath)
-                        if (not next_mesh_exists) or \
-                            (system not in pv.read(next_filepath).point_data):
-                            ids = original_mesh['id']
-                            positions = original_mesh.points
-                            temps = original_mesh['T']
-                            new_internal_vals = np.load(cache_path)
-                        continue
-                
-                    mesh = pv.read(file)
+                else:       
+                    # Check for the next target mesh
+                    next_filename = file_prefix + '_' + \
+                        str(k + 1).zfill(3) + '.vtu'
+                    next_filepath = os.path.join(new_dir, next_filename)
+                    
+                    # If next mesh does not exist or does not have the 
+                    # system, load values from cache
+                    next_mesh_exists = os.path.exists(next_filepath)
+                    if (not next_mesh_exists) or \
+                        (system not in pv.read(next_filepath).point_data):
+                        ids = original_mesh['id']
+                        positions = original_mesh.points
+                        temps = original_mesh['T']
+                        new_internal_vals = np.load(cache_path)
+                    continue
             
             else:
                 mesh = pv.read(file)
