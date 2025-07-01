@@ -137,25 +137,43 @@ def test_run_vtk_interpolate_no_overwrite():
     last_temps = np.ones(NUM_VTU_FILES) * MAX_TEMP
     
     # Test interpolation (with overwriting)
-    run_vtk(files=filenames[:NUM_VTU_FILES // 2],
+    run_vtk(files=filenames,
             system='AHe',
             time_interval=TIME_INTERVAL,
             file_prefix='meshes_AHe_int',
             overwrite=True)
-    
-    run_vtk(files=filenames[:NUM_VTU_FILES // 2],
+
+    # Intentionally crash the ZHe test midway thru
+    with pytest.raises(TypeError):
+        run_vtk(files=filenames[:-1] + [0],
+                system='ZHe',
+                time_interval=TIME_INTERVAL,
+                file_prefix='meshes_ZHe_int',
+                overwrite=True)
+
+    # Test resuming the ZHe code from where the test was interrupted
+    run_vtk(files=filenames,
             system='ZHe',
             time_interval=TIME_INTERVAL,
             file_prefix='meshes_ZHe_int',
-            overwrite=True)
+            overwrite=False)
 
-    run_vtk(files=filenames[:NUM_VTU_FILES // 2],
+    # Intentionally crash the AFT test midway thru
+    with pytest.raises(TypeError):
+        run_vtk(files=filenames[:-1] + [0],
+                system='AFT',
+                time_interval=TIME_INTERVAL,
+                file_prefix='meshes_AFT_int',
+                overwrite=True)
+
+    # Test resuming the AFT code from where the test was interrupted
+    run_vtk(files=filenames,
             system='AFT',
             time_interval=TIME_INTERVAL,
             file_prefix='meshes_AFT_int',
-            overwrite=True)
+            overwrite=False)
     
-    for i in range(NUM_VTU_FILES // 2):
+    for i in range(NUM_VTU_FILES):
         suffix = '_int_' + str(i).zfill(3) + '.vtu'
 
         # Test all systems
