@@ -471,6 +471,11 @@ def run_vtk(files, system, time_interval,
     # Path for dump of cached internal values
     cache_path = os.path.join(new_dir, 'cache_internal_vals.npy')
     
+    # For AFT system, can use number of files to determine array len
+    # -1 is to account for missing tstep from using averages
+    # For He system, we just use the input num_nodes
+    internal_len = len(files) - 1 if system == "AFT" else num_nodes
+    
     with Parallel(n_jobs=processes,
                   batch_size=batch_size,
                   pre_dispatch=pre_dispatch,
@@ -515,11 +520,6 @@ def run_vtk(files, system, time_interval,
                 num_particles = len(mesh['T'])
 
                 # Set up empty arrays for first timestep
-                # For AFT system, can use number of files to determine array len
-                # -1 is to account for missing tstep from using averages
-                # For He system, we just use the input num_nodes
-                internal_len = len(files) - 1 if system == "AFT" else num_nodes
-
                 new_internal_vals = np.empty((num_particles, internal_len), 
                                              dtype=dtype)
                 new_internal_vals.fill(np.nan)
