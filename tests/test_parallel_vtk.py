@@ -66,6 +66,13 @@ def test_run_vtk():
             file_prefix='meshes_tchron',
             overwrite=True)
     
+    # Make sure calling run_vtk again doesn't overwrite AFT/ZHe data
+    run_vtk(files=filenames,
+            system='AHe',
+            time_interval=TIME_INTERVAL,
+            file_prefix='meshes_tchron',
+            overwrite=True)
+    
     for i in range(NUM_VTU_FILES):
         prefix = 'meshes_tchron'
         suffix = '_' + str(i).zfill(3) + '.vtu'
