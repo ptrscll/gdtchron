@@ -148,7 +148,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
             try:
                 profile = old_profiles[neighbor_id == old_ids]
             except Exception:
-                warnings.warn("Warning: likely duplicate id", 
+                warnings.warn("Warning: likely multi-dimensional id", 
                               stacklevel=2)
                 x = np.empty(num_nodes, dtype=dtype)
                 x.fill(dtype(np.inf))
@@ -316,7 +316,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
             try:
                 r_initial = old_annealing_arrays[neighbor_id == old_ids][0]
             except Exception:
-                warnings.warn("Warning: likely duplicate ids", 
+                warnings.warn("Warning: likely multi-dimensional id", 
                               stacklevel=2)
                 x = np.empty(r_length, dtype=dtype)
                 x.fill(dtype(np.inf))
