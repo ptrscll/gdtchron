@@ -39,7 +39,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
             Unused parameter (included here for symmetry with the inputs of
             run_particle_aft)
         positions : pyvista.core.pyvista_ndarray.pyvista_ndarray
-            x, y, z coordinates of each particle
+            x, y, z coordinates of each particle in current mesh
         tree : scipy.spatial._kdtree.KDTree or None
             K-d tree containing the positions of particles from the previous
             timestep. Unused (and typically set to None) if interpolate_profile
@@ -209,7 +209,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
         k : int
             Index of the current timestep/mesh being processed.
         positions : pyvista.core.pyvista_ndarray.pyvista_ndarray
-            x, y, z coordinates of each particle
+            x, y, z coordinates of each particle in current mesh
         tree : scipy.spatial._kdtree.KDTree or None
             K-d tree containing the positions of particles from the previous
             timestep. Unused (and typically set to None) if interpolate_vals
