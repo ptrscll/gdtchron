@@ -101,7 +101,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
      time_interval, system, num_nodes, (u, th, radius)) = inputs
     
     # Get old profile and temperature for current particle if present
-    array = old_profiles[particle_id == old_ids]
+    profile = old_profiles[particle_id == old_ids]
     particle_start_temp = old_temps[particle_id == old_ids]
 
     # Create variable to track if missing old data for particle
@@ -111,15 +111,13 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
     # If the initial array is filled with np.inf (i.e, we have a bugged
     # particle), then return (NaN, initial array)
     # Otherwise, assign new value from old profile
-    if array.size == 0:
+    if profile.size == 0:
         profile = np.empty(num_nodes, dtype=dtype)
         profile.fill(np.nan)
         missing = True
-    elif array[0][0] == dtype(np.inf):
+    elif profile[0][0] == dtype(np.inf):
         age = np.nan
-        return (age, array[0])
-    else:
-        profile = array 
+        return (age, profile[0])
     
     # Get particle temperature
     particle_end_temp = temps[ids == particle_id]
@@ -131,10 +129,9 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
         age = np.nan
         return (age, x)
     
-    # Use previous He from nearest neighbor in previous timestep if none present
-    
     if missing:
         
+        # Use previous He from nearest neighbor in previous timestep if needed
         if interpolate_vals:
         
             # Get particle position
@@ -147,10 +144,11 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
             neighbor_id = tree_ids[index]
 
             # Get profile of closest particle
+            # Note: Sometimes particles can get bugged and have duplicate ids
             try:
                 profile = old_profiles[neighbor_id == old_ids]
             except Exception:
-                warnings.warn("Warning: likely multi-dimensional id", 
+                warnings.warn("Warning: likely duplicate id", 
                               stacklevel=2)
                 x = np.empty(num_nodes, dtype=dtype)
                 x.fill(dtype(np.inf))
@@ -160,8 +158,8 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
             # Get temp of closest particle
             particle_start_temp = old_temps[neighbor_id == old_ids]
         
-        # If turned off, return original profile of np.inf
-        elif not interpolate_vals:
+        # If interpolate turned off, return original profile of np.inf
+        else:
             x = np.empty(num_nodes, dtype=dtype)
             x.fill(dtype(np.inf))
             age = np.nan
@@ -300,10 +298,9 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
         age = np.nan
         return (age, x)
     
-    # Use annealing from nearest neighbor in previous timestep if none present
-    
     if missing:
         
+        # Use annealing from nearest neighbor in previous timestep if needed
         if interpolate_vals:
         
             # Get particle position
@@ -319,7 +316,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
             try:
                 r_initial = old_annealing_arrays[neighbor_id == old_ids][0]
             except Exception:
-                warnings.warn("Warning: likely multi-dimensional id", 
+                warnings.warn("Warning: likely duplicate ids", 
                               stacklevel=2)
                 x = np.empty(r_length, dtype=dtype)
                 x.fill(dtype(np.inf))
@@ -330,7 +327,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
             particle_start_temp = old_temps[neighbor_id == old_ids]
         
         # If turned off, return np.nan
-        elif not interpolate_vals:
+        else:
             x = np.empty(r_length, dtype=dtype)
             x.fill(dtype(np.inf))
             age = np.nan
@@ -351,6 +348,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
                            end=0, next_nan_index=k - 1, 
                            constants=ft_constants[annealing_model])
 
+    # Only perform age calculations if necessary
     if calc_age:
         r_so_far = aft.dpar_conversion(r_mr=r[~np.isnan(r)], 
                                        dpar=dpar, 
