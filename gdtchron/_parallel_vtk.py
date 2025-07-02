@@ -51,7 +51,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
         tree_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
             IDs for all particles with profiles from the previous timestep. Not
             used and typically set to None if interpolate_vals is True
-        temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
+        mesh_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
             Temperatures for all particles from the current timestep
         old_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
             Temperatures for all particles from the previous timestep
@@ -97,8 +97,8 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
 
     """
     # Unpack inputs
-    (k, positions, tree, ids, old_ids, tree_ids, temps, old_temps, old_profiles,
-     time_interval, system, num_nodes, (u, th, radius)) = inputs
+    (k, positions, tree, ids, old_ids, tree_ids, mesh_temps, old_temps, 
+     old_profiles, time_interval, system, num_nodes, (u, th, radius)) = inputs
     
     # Get old profile and temperature for current particle if present
     profile = old_profiles[particle_id == old_ids]
@@ -120,7 +120,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
         return (age, profile[0])
     
     # Get particle temperature
-    particle_end_temp = temps[ids == particle_id]
+    particle_end_temp = mesh_temps[ids == particle_id]
        
     # If particle not found, don't attempt to calculate profile or age
     if particle_end_temp.size == 0:            
@@ -219,7 +219,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
         tree_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
             IDs for all particles with profiles from the previous timestep. Not
             used (and typically set to False) if interpolate_vals is True.
-        temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
+        mesh_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
             Temperatures for all particles from the current timestep
         old_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
             Temperatures for all particles from the previous timestep
@@ -262,7 +262,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
     dtype = np.float64
     
     # Unpack inputs
-    (k, positions, tree, ids, old_ids, tree_ids, temps, old_temps, 
+    (k, positions, tree, ids, old_ids, tree_ids, mesh_temps, old_temps, 
      old_annealing_arrays, time_interval, system, 
      r_length, (dpar, annealing_model)) = inputs
     
@@ -289,7 +289,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
         r_initial = r_initial[0]
     
     # Get final particle temperature
-    particle_end_temp = temps[ids == particle_id]
+    particle_end_temp = mesh_temps[ids == particle_id]
        
     # If particle not found, don't attempt to calculate profile or age
     if particle_end_temp.size == 0:            
@@ -437,7 +437,6 @@ def run_vtk(files, system, time_interval,
         this function skips timesteps that already have data for this system
         and uses that data and uses for calculations in subsequent meshes. 
         (default: False)
-        TODO: This doesn't currently work when False
 
     Returns
     -------
@@ -446,6 +445,7 @@ def run_vtk(files, system, time_interval,
     """
     dtype = np.float32
     
+    # Setting variables for parallel computation
     if processes is None:
         processes = os.cpu_count() - 2
     
@@ -455,7 +455,7 @@ def run_vtk(files, system, time_interval,
                 'ZHe': run_particle_he,
                 'AFT': run_particle_ft}
     
-    # Path for temporary memory dumps
+    # Setting up directory for temporary memory dumps
     temp_dir = os.path.expanduser(temp_dir)
     
     with suppress(Exception):
@@ -463,15 +463,22 @@ def run_vtk(files, system, time_interval,
     
     os.makedirs(temp_dir)
     
-    new_dir = os.path.join(path, file_prefix)
-    os.makedirs(new_dir, exist_ok=True)
+    # Setting up output directory
+    output_dir = os.path.join(path, file_prefix)
+    os.makedirs(output_dir, exist_ok=True)
     
     # Path for dump of cached internal values
-    cache_path = os.path.join(new_dir, 'cache_internal_vals.npy')
+    cache_path = os.path.join(output_dir, 'cache_internal_vals.npy')
     
-    # For AFT system, can use number of files to determine array len
-    # -1 is to account for missing tstep from using averages
-    # For He system, we just use the input num_nodes
+    # internal_len represents the length of the "internal values" array
+    # for the inputted annealing system. For the (U-Th)/He system, this
+    # array is a profile of x values (He concentration times node position)
+    # across all nodes in a grain. For the AFT system, this array contains mean 
+    # reduced lengths of fission tracks formed at each timestep.
+
+    # For AFT system, can use number of files to determine internal_len
+    # (-1 is to account for missing tstep from using averages)
+    # For He systems, can just use the input num_nodes
     internal_len = len(files) - 1 if system == "AFT" else num_nodes
     
     with Parallel(n_jobs=processes,
@@ -482,39 +489,49 @@ def run_vtk(files, system, time_interval,
         # Loop through timesteps
         for k, file in enumerate(files):  
             
-            filename = file_prefix + '_' + str(k).zfill(3) + '.vtu'
-            filepath = os.path.join(new_dir, filename)
+            # Setting up output file path
+            outfile_name = file_prefix + '_' + str(k).zfill(3) + '.vtu'
+            outfile_path = os.path.join(output_dir, outfile_name)
             
             # Check if target mesh already exists
-            if os.path.exists(filepath):
-                original_mesh = pv.read(filepath)
+            if os.path.exists(outfile_path):
+                original_mesh = pv.read(outfile_path)
 
-                # If the mesh only has data from other systems, set that mesh
-                # as our output mesh (to avoid overwriting other system data)
+                # If the mesh only has data from other systems or we're willing
+                # to overwrite old data from the current thermochronologic
+                # system, set that mesh as our input/output mesh (to avoid 
+                # overwriting other system data)
                 if overwrite or system not in original_mesh.point_data:
                     mesh = original_mesh
                 else:       
-                    # Check for the next target mesh
+                    # If this mesh exists and has data for the inputted
+                    # thermochronologic system, we now need to see if this is
+                    # the last mesh with data
                     next_filename = file_prefix + '_' + \
                         str(k + 1).zfill(3) + '.vtu'
-                    next_filepath = os.path.join(new_dir, next_filename)
+                    next_filepath = os.path.join(output_dir, next_filename)
                     
-                    # If next mesh does not exist or does not have the 
-                    # system, load values from cache
+                    # If this mesh is the last mesh in the directory with
+                    # data for the current system, load values from cache
                     next_mesh_exists = os.path.exists(next_filepath)
                     if (not next_mesh_exists) or \
                         (system not in pv.read(next_filepath).point_data):
                         ids = original_mesh['id']
                         positions = original_mesh.points
-                        temps = original_mesh['T']
+                        mesh_temps = original_mesh['T']
                         new_internal_vals = np.load(cache_path)
+                    
+                    # Since the current mesh is complete, there's nothing left
+                    # to do with it, so we can continue to the next mesh
                     continue
             
             else:
+                # If no output mesh exists for this timestep, use the provided
+                # file as our mesh for this timestep
                 mesh = pv.read(file)
             
+            # Check if we're in the first timestep
             if k == 0:
-
                 num_particles = len(mesh['T'])
 
                 # Set up empty arrays for first timestep
@@ -526,25 +543,28 @@ def run_vtk(files, system, time_interval,
                 # Publish ages at 0
                 ages = np.zeros(num_particles)
                 mesh[system] = ages
-                mesh.save(filepath)
+                mesh.save(outfile_path)
+
             elif k > 0:  
+                # If this is not the first timestep, take the "new" data
+                # from the previous timestep and rename it as the "old" data
                 old_internal_vals = new_internal_vals
-
-                old_ids = ids  # Get ids for previous internal values
+                old_ids = ids
                 old_positions = positions
-                old_temps = temps
-
-            temps = mesh['T']
+                old_temps = mesh_temps
             
+            # Memory management
             gc.collect()
             if k in np.arange(5, len(files), 5):
                 shutil.rmtree(temp_dir)
                 os.makedirs(temp_dir)
             
+            # Extracting data from mesh
+            mesh_temps = mesh['T']
             ids = mesh['id']
             positions = mesh.points
 
-            # Running the forward model if we've seen at least 2 timesteps
+            # Run the forward model if we've seen at least 2 timesteps
             if k > 0:
             
                 # Set up KDTree for timestep if doing interpolation
@@ -558,7 +578,8 @@ def run_vtk(files, system, time_interval,
                     other_positions = old_positions[has_vals]
 
                     # Note: At k=0, all particles have internal_vals but
-                    #       they're all set to NaN, so we need a special case
+                    #       they're all set to NaN, so what we used above
+                    #       doesn't and work and we need a special case
                     if k == 1:
                         tree_ids = old_ids
                         other_positions = old_positions
@@ -570,20 +591,22 @@ def run_vtk(files, system, time_interval,
                     tree = None
                     tree_ids = None
 
+                # Set up inputs for run_particle function
                 if system == 'AFT':
                     model_inputs = (dpar, annealing_model)
                 else:
                     model_inputs = (u, th, radius)
                     
                 inputs = (k, positions, tree, ids, old_ids, tree_ids, 
-                          temps, old_temps, old_internal_vals,
+                          mesh_temps, old_temps, old_internal_vals,
                           time_interval, system, internal_len, model_inputs)
                     
-                # Calculate ages if indicated or on last timestep
+                # Calculate ages if indicated or if on last timestep
                 calc_age = all_timesteps or k == len(files) - 1
                 
                 prog_bar_txt = "Timestep " + str(k)
                 
+                # Calculate new x profiles/annealed lengths and ages in parallel
                 output = parallel(
                     delayed(particle_fn[system])
                     (particle, inputs, calc_age, interpolate_vals)
@@ -600,7 +623,7 @@ def run_vtk(files, system, time_interval,
                 mesh.point_data[system] = np.array(ages, dtype=dtype)
             
                 # Save new mesh
-                mesh.save(filepath)
+                mesh.save(outfile_path)
                 
                 # Purge the temp folder
                 with suppress(Exception):
