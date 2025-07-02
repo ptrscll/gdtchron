@@ -21,7 +21,7 @@ from tqdm import tqdm
 from gdtchron import aft, he
 
 
-def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
+def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
                         dtype=np.float32):  
     """Calculate profile of x values for a particular ASPECT particle.
 
@@ -42,7 +42,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
             x, y, z coordinates of each particle in current mesh
         tree : scipy.spatial._kdtree.KDTree or None
             K-d tree containing the positions of particles from the previous
-            timestep. Unused (and typically set to None) if interpolate_profile
+            timestep. Unused (and typically set to None) if interpolate_vals
             is False.
         ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
             IDs for all particles from the current timestep
@@ -50,7 +50,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
             IDs for all particles from the previous timestep
         tree_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
             IDs for all particles with profiles from the previous timestep. Not
-            used and typically set to None if interpolate_profile is True
+            used and typically set to None if interpolate_vals is True
         temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
             Temperatures for all particles from the current timestep
         old_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
@@ -75,7 +75,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
         Boolean indicating whether to calculate age of particle. If False,
         age is returned as np.nan. Note that setting this to False will not
         substantially improve the speed of calculations for this function.
-    interpolate_profile : bool
+    interpolate_vals : bool
         Boolean indicating whether to interpolate He data from nearest neighbor
         of the particle if the particle itself lacks He data. If False and the
         particle is missing He data, an age of np.nan and a profile filled with 
@@ -135,7 +135,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
     
     if missing:
         
-        if interpolate_profile:
+        if interpolate_vals:
         
             # Get particle position
             particle_position = positions[ids == particle_id]
@@ -161,7 +161,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_profile,
             particle_start_temp = old_temps[neighbor_id == old_ids]
         
         # If turned off, return original profile of np.inf
-        elif not interpolate_profile:
+        elif not interpolate_vals:
             x = np.empty(num_nodes, dtype=dtype)
             x.fill(dtype(np.inf))
             age = np.nan
