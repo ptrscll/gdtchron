@@ -19,8 +19,115 @@ TIME_INTERVAL = 0.2  # Myr
 MAX_TEMP = 400.
 DELTA_TEMP = 10.
 
+
 def test_run_particle_he():
     """Unit tests for basic functionality of run_particle_he."""
+    # Create very initial mesh and assign each an id and temp 
+    prev_mesh = pv.ImageData(dimensions=(X_DIM, 
+                                         Y_DIM, 
+                                         1)).cast_to_unstructured_grid()
+    prev_mesh['id'] = np.arange(NUM_PARTICLES)
+    prev_mesh['T'] = MAX_TEMP * np.ones(NUM_PARTICLES)
+
+    # Create next mesh with (mostly) same ids and temps
+    mesh = pv.ImageData(dimensions=(X_DIM, 
+                                    Y_DIM, 
+                                    1)).cast_to_unstructured_grid()
+    id_array = np.arange(NUM_PARTICLES)
+    id_array[1] = NUM_PARTICLES + 1
+    mesh['id'] = id_array
+
+    temp_array = MAX_TEMP - DELTA_TEMP * np.ones(NUM_PARTICLES)
+    temp_array[1] = MAX_TEMP
+    mesh['T'] = temp_array
+
+    # Create final mesh
+    final_mesh = pv.ImageData(dimensions=(X_DIM, 
+                                          Y_DIM, 
+                                          1)).cast_to_unstructured_grid()
+    final_mesh['id'] = np.arange(NUM_PARTICLES)
+
+    temp_array = MAX_TEMP - 2 * DELTA_TEMP * np.ones(NUM_PARTICLES)
+    temp_array[1] = MAX_TEMP
+    final_mesh['T'] = temp_array
+    
+    # Set variables for inputs for all rounds of run_particle
+    internal_len = 513
+    system = 'AHe'
+    model_inputs = (100, 100, 50)
+
+    # Set variables for inputs for first round of run_particle
+    k = 1
+    positions = mesh.points
+    tree = KDTree(prev_mesh.points)
+    ids = mesh['id']
+    old_ids = prev_mesh['id']
+    tree_ids = old_ids
+    temps = mesh['T']
+    old_temps = prev_mesh['T']
+    old_internal_vals = np.empty((NUM_PARTICLES, internal_len))
+    old_internal_vals.fill(np.nan)
+                    
+    inputs = (k, positions, tree, ids, old_ids, tree_ids, temps, old_temps, 
+              old_internal_vals, TIME_INTERVAL, system, internal_len, 
+              model_inputs)
+
+    for i in range(NUM_PARTICLES):
+        age, r = _parallel_vtk.run_particle_he(particle_id=id_array[i], 
+                                               inputs=inputs, 
+                                               calc_age=True, 
+                                               interpolate_vals=True)
+        old_internal_vals[i] = r
+
+        if i == 1:
+            curr_temps = np.array([MAX_TEMP, MAX_TEMP])
+        else:
+            curr_temps = np.array([MAX_TEMP, MAX_TEMP - DELTA_TEMP])
+        curr_tsteps = np.array([TIME_INTERVAL, 0])
+        assert age == pytest.approx(he.forward_model_he(temps=curr_temps,
+                                                        tsteps=curr_tsteps,
+                                                        system=system,
+                                                        u=100,
+                                                        th=100,
+                                                        radius=50))
+        
+    # Set variables for inputs for second round of run_particle
+    k = 2
+    positions = final_mesh.points
+    tree = KDTree(mesh.points)
+    ids = final_mesh['id']
+    old_ids = mesh['id']
+    tree_ids = old_ids
+    temps = final_mesh['T']
+    old_temps = mesh['T']
+                    
+    inputs = (k, positions, tree, ids, old_ids, tree_ids, temps, old_temps, 
+              old_internal_vals, TIME_INTERVAL, system, internal_len, 
+              model_inputs)
+    
+    for i in range(NUM_PARTICLES):
+        age, r = _parallel_vtk.run_particle_he(particle_id=i, 
+                                               inputs=inputs, 
+                                               calc_age=True, 
+                                               interpolate_vals=True)
+
+        if i == 1:
+            curr_temps = np.array([MAX_TEMP, MAX_TEMP, MAX_TEMP])
+        else:
+            curr_temps = np.array([MAX_TEMP, 
+                                   MAX_TEMP - DELTA_TEMP,
+                                   MAX_TEMP - 2 * DELTA_TEMP])
+        curr_tsteps = np.array([2 * TIME_INTERVAL, TIME_INTERVAL, 0])
+        assert age == pytest.approx(he.forward_model_he(temps=curr_temps,
+                                                        tsteps=curr_tsteps,
+                                                        system=system,
+                                                        u=100,
+                                                        th=100,
+                                                        radius=50))
+
+
+def test_run_particle_ft():
+    """Unit tests for basic functionality of run_particle_ft."""
     # Create very initial mesh and assign each an id and temp 
     prev_mesh = pv.ImageData(dimensions=(X_DIM, 
                                          Y_DIM, 
@@ -71,7 +178,6 @@ def test_run_particle_he():
               old_internal_vals, TIME_INTERVAL, system, internal_len, 
               model_inputs)
     
-
     for i in range(NUM_PARTICLES):
         age, r = _parallel_vtk.run_particle_ft(particle_id=id_array[i], 
                                                inputs=inputs, 
@@ -102,7 +208,6 @@ def test_run_particle_he():
               old_internal_vals, TIME_INTERVAL, system, internal_len, 
               model_inputs)
     
-
     for i in range(NUM_PARTICLES):
         age, r = _parallel_vtk.run_particle_ft(particle_id=i, 
                                                inputs=inputs, 
