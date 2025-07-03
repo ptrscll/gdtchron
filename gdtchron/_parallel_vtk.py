@@ -1,8 +1,8 @@
-"""Module for running forward models across multiple T-t paths and VTK meshes.
+"""Module for running forward models across multiple t-T paths and VTK meshes.
 
 This module includes a function for running forward models across multiple
 user-provided t-T paths (run_tt_paths) and a function to run forward models
-across the T-t paths experienced by different particles across a series of
+across the t-T paths experienced by different particles across a series of
 VTK meshes (run_vtk)
 """
 
@@ -38,28 +38,28 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
         k : any
             Unused parameter (included here for symmetry with the inputs of
             run_particle_aft)
-        positions : pyvista.core.pyvista_ndarray.pyvista_ndarray
+        positions : PyVista array
             x, y, z coordinates of each particle in current mesh
-        tree : scipy.spatial._kdtree.KDTree or None
+        tree : SciPy KDTree or None
             K-d tree containing the positions of particles from the previous
             timestep. Unused (and typically set to None) if interpolate_vals
             is False.
-        ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
+        ids : PyVista array
             IDs for all particles from the current timestep
-        old_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
+        old_ids : PyVista array
             IDs for all particles from the previous timestep
-        tree_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
+        tree_ids : PyVista array
             IDs for all particles with profiles from the previous timestep. Not
             used and typically set to None if interpolate_vals is True
-        mesh_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
-            Temperatures for all particles from the current timestep
-        old_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
-            Temperatures for all particles from the previous timestep
+        mesh_temps : PyVista array
+            Temperatures (K) for all particles from the current timestep
+        old_temps : PyVista array
+            Temperatures (K) for all particles from the previous timestep
         old_profiles : NumPy ndarray of NumPy arrays of floats
             Profiles of x values for all particles.
         time_interval : float
             Time elapsed between mesh files (Myr)
-        system : string
+        system : str
             Isotopic system to model. Valid options are 'AHe' (apatite He) or
             'ZHe' (zircon He)
         num_nodes : int
@@ -88,10 +88,11 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
     -------
     age : float
         Age of the particle. This equals np.nan if calc_age is False or there
-        is an issue obtaining the age of the particle
+        is an issue obtaining the age of the particle.
     x : NumPy array of floats
-        Matrix x solved for using Equation 21 in Ketcham (2005) (in that paper,
-        x is referred to as u).
+        Matrix x solved for using Equation 21 in Ketcham (2005). In that 
+        equation, x is referred to as u. We use x here to avoid confusing this 
+        variable for uranium (u).
         Equivalent to the He concentration (mol / g) times the node position
         (micrometers).
 
@@ -148,7 +149,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
             try:
                 profile = old_profiles[neighbor_id == old_ids]
             except Exception:
-                warnings.warn("Warning: likely multi-dimensional id", 
+                warnings.warn("Warning: 2+ particles likely have the same ID", 
                               stacklevel=2)
                 x = np.empty(num_nodes, dtype=dtype)
                 x.fill(dtype(np.inf))
@@ -170,7 +171,7 @@ def run_particle_he(particle_id, inputs, calc_age, interpolate_vals,
         age = np.nan
         return (age, profile[0])
         
-    # passing start and end temperatures to forward model
+    # Passing start and end temperatures to forward model
     particle_temps = np.array([particle_start_temp[0], particle_end_temp[0]])
     particle_tsteps = np.array([time_interval, 0])
 
@@ -206,28 +207,28 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
     inputs : tuple
         k : int
             Index of the current timestep/mesh being processed.
-        positions : pyvista.core.pyvista_ndarray.pyvista_ndarray
+        positions : PyVista array
             x, y, z coordinates of each particle in current mesh
-        tree : scipy.spatial._kdtree.KDTree or None
+        tree : SciPy KDTree or None
             K-d tree containing the positions of particles from the previous
             timestep. Unused (and typically set to None) if interpolate_vals
             is False.
-        ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
+        ids : PyVista array
             IDs for all particles from the current timestep
-        old_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray
+        old_ids : PyVista array
             IDs for all particles from the previous timestep
-        tree_ids : pyvista.core.pyvista_ndarray.pyvista_ndarray or None
+        tree_ids : PyVista array
             IDs for all particles with profiles from the previous timestep. Not
             used (and typically set to False) if interpolate_vals is True.
-        mesh_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
-            Temperatures for all particles from the current timestep
-        old_temps : pyvista.core.pyvista_ndarray.pyvista_ndarray
-            Temperatures for all particles from the previous timestep
+        mesh_temps : PyVista array
+            Temperatures (K) for all particles from the current timestep
+        old_temps : PyVista array
+            Temperatures (K) for all particles from the previous timestep
         old_annealing_arrays : NumPy ndarray of NumPy arrays of floats
             r values for all particles from the previous timestep
         time_interval : float
             Time elapsed between mesh files (Myr)
-        system : string
+        system : str
             Isotopic system to model. Not used for FT system (but included as a
             parameter for symmetry with run_particle_he)
         r_length : int
@@ -235,7 +236,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
         model_inputs : tuple       
             dpar : float
                 Etch figure length (micrometers).
-            annealing_model : string
+            annealing_model : str
                 Annealing model to use. Currently, the only acceptable value is
                 'Ketcham99', which corresponds to the fanning curvilinear model 
                 from Ketcham et al. (1999).
@@ -254,7 +255,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
         Age of the particle. This equals np.nan if calc_age is False or there
         is an issue obtaining the age of the particle
     r : NumPy array of floats
-        Updated reduced lengths (unitless) for a hyppothetical grain located 
+        Updated reduced lengths (unitless) for a hypothetical grain located 
         within this particle.
 
     """
@@ -316,7 +317,7 @@ def run_particle_ft(particle_id, inputs, calc_age, interpolate_vals):
             try:
                 r_initial = old_annealing_arrays[neighbor_id == old_ids][0]
             except Exception:
-                warnings.warn("Warning: likely multi-dimensional id", 
+                warnings.warn("Warning: 2+ particles likely have the same ID", 
                               stacklevel=2)
                 x = np.empty(r_length, dtype=dtype)
                 x.fill(dtype(np.inf))
@@ -379,53 +380,54 @@ def run_vtk(files, system, time_interval,
     
     Parameters
     ----------
-    files : list of strings
-        List of paths to vtu files to run forward model on. Files are
+    files : list of str
+        List of paths to VTK files to run forward model on. Files are
         processed in the order they are given in the list.
-    system : string
-        Isotopic system to model. Current options are:
-            'AHe': Apatite (U-Th) / He
-            'ZHe': Zircon (U-Th) / He
-            'AFT': Apatite Fission Track
+    system : str
+        Isotopic system to model. Current options include 'AHe': Apatite 
+        (U-Th)/He, 'ZHe': Zircon (U-Th)/He, 'AFT': Apatite Fission Track
     time_interval : float
         Interval (Myrs) between times when each mesh was produced
     u : float, optional
-        U concentration (ppm). Default is 100 ppm. Only used if system is 'AHe'
-        or 'ZHe'.
+        U concentration (ppm) (default: 100). Only used if system is 'AHe' or 
+        'ZHe'.
     th : float, optional
-        Th concentration (ppm). Default is 100 ppm. Only used if system is 'AHe'
-        or 'ZHe'.
+        Th concentration (ppm) (default: 100). Only used if system is 'AHe' or 
+        'ZHe'.
     num_nodes : int 
         Number of nodes within the grain (for He) (default: 513). Unused for FT 
-        system
+        system.
     radius : float, optional
-        Radius of the grain (micrometers). Default is 50 micrometers. Only used 
+        Radius of the grain (micrometers) (default: 50). Only used 
         if system is 'AHe' or 'ZHe'.
     dpar : float, optional
-        Etch figure length (micrometers). Default is 1.75 micrometers. Only used
+        Etch figure length (micrometers) (default: 1.75). Only used
         if system is 'AFT'.
-    annealing_model : string, optional
+    annealing_model : str, optional
         Annealing model to use. Currently, the only acceptable value is
         'Ketcham99', which corresponds to the fanning curvilinear model from
-        Ketcham et al. (1999). Default is 'Ketcham99'. Only used if system is
+        Ketcham et al. (1999) (default: 'Ketcham99'). Only used if system is
         'AFT'.
-    file_prefix : string
+    file_prefix : str
         Prefix to give output files (default: 'meshes_tchron')
-    path : string
+    path : str
         Path to output directory (default: './')
-    temp_dir : string
-        Path to temporary output directory
+    temp_dir : str
+        Path to output directory used to temporarily dump data that does not 
+        fit in memory.
     batch_size : int or 'auto', optional
-        Number of batches to be dispatched to each worker at a time during 
+        Number of jobs to be dispatched to each worker at a time during 
         parallel computation (default: 100). If set to 'auto', this value is
         dynamically adjusted during computations to try to optimize efficiency.
+        However, on most test systems, better efficiency is gained by manually 
+        setting batch size to 100 or 1000 than using 'auto'.
     processes : int or None, optional
         Maximum number of processes that can run concurrently. If None, this
         parameter is internally set to two less than the number of CPUs on the
         user's system (default: None).
     interpolate_vals : bool
         Boolean indicating whether to interpolate particle data from nearest 
-        neighbor if the particle itself lacks He data. If False and the
+        neighbor if the particle itself lacks He or FT data. If False and the
         particle is missing data, an age of np.nan is returned for that 
         particle. (default: True)
     all_timesteps : bool
@@ -437,10 +439,6 @@ def run_vtk(files, system, time_interval,
         this function skips timesteps that already have data for this system
         and uses that data and uses for calculations in subsequent meshes. 
         (default: False)
-
-    Returns
-    -------
-    This function does not return any values.
 
     """
     dtype = np.float32
@@ -458,7 +456,7 @@ def run_vtk(files, system, time_interval,
     # Setting up directory for temporary memory dumps
     temp_dir = os.path.expanduser(temp_dir)
     
-    with suppress(Exception):
+    with suppress(FileNotFoundError):
         shutil.rmtree(temp_dir)
     
     os.makedirs(temp_dir)
@@ -471,7 +469,7 @@ def run_vtk(files, system, time_interval,
     cache_path = os.path.join(output_dir, 'cache_internal_vals.npy')
     
     # internal_len represents the length of the "internal values" array
-    # for the inputted annealing system. For the (U-Th)/He system, this
+    # for the input annealing system. For the (U-Th)/He system, this
     # array is a profile of x values (He concentration times node position)
     # across all nodes in a grain. For the AFT system, this array contains mean 
     # reduced lengths of fission tracks formed at each timestep.
@@ -504,7 +502,7 @@ def run_vtk(files, system, time_interval,
                 if overwrite or system not in original_mesh.point_data:
                     mesh = original_mesh
                 else:       
-                    # If this mesh exists and has data for the inputted
+                    # If this mesh exists and has data for the input
                     # thermochronologic system, we now need to see if this is
                     # the last mesh with data
                     next_filename = file_prefix + '_' + \
@@ -579,7 +577,7 @@ def run_vtk(files, system, time_interval,
 
                     # Note: At k=0, all particles have internal_vals but
                     #       they're all set to NaN, so what we used above
-                    #       doesn't and work and we need a special case
+                    #       doesn't work for k=1 and we need a special case
                     if k == 1:
                         tree_ids = old_ids
                         other_positions = old_positions
@@ -610,7 +608,8 @@ def run_vtk(files, system, time_interval,
                 output = parallel(
                     delayed(particle_fn[system])
                     (particle, inputs, calc_age, interpolate_vals)
-                    for particle in tqdm(ids, position=0, desc=prog_bar_txt)
+                    for particle in tqdm(ids, position=0, 
+                                         desc=prog_bar_txt, leave=False)
                     )
                 
                 ages, new_internal_vals = zip(*output)
@@ -626,7 +625,7 @@ def run_vtk(files, system, time_interval,
                 mesh.save(outfile_path)
                 
                 # Purge the temp folder
-                with suppress(Exception):
+                with suppress(FileNotFoundError):
                     shutil.rmtree(temp_dir)
                 os.makedirs(temp_dir)
     
@@ -656,32 +655,32 @@ def run_tt_paths(temp_paths, tsteps, system,
         Each pair of adjacent times composes a timestep. The time at a given
         index i corresponds to the temperatures at index i of each of the NumPy
         arrays in temp_paths.
-    system : string
-        Isotopic system to model. Current options are:
-            'AHe': Apatite (U-Th) / He
-            'ZHe': Zircon (U-Th) / He
-            'AFT': Apatite Fission Track
+    system : str
+        Isotopic system to model. Current options include 'AHe': Apatite 
+        (U-Th)/He, 'ZHe': Zircon (U-Th)/He, 'AFT': Apatite Fission Track
     u : float, optional
-        U concentration (ppm). Default is 100 ppm. Only used if system is 'AHe'
+        U concentration (ppm) (default: 100). Only used if system is 'AHe'
         or 'ZHe'.
     th : float, optional
-        Th concentration (ppm). Default is 100 ppm. Only used if system is 'AHe'
+        Th concentration (ppm) (default: 100). Only used if system is 'AHe'
         or 'ZHe'.
     radius : float, optional
-        Radius of the grain (micrometers). Default is 50 micrometers. Only used 
+        Radius of the grain (micrometers) (default: 50). Only used 
         if system is 'AHe' or 'ZHe'.
     dpar : float, optional
-        Etch figure length (micrometers). Default is 1.75 micrometers. Only used
+        Etch figure length (micrometers) (default: 1.75). Only used
         if system is 'AFT'.
-    annealing_model : string, optional
+    annealing_model : str, optional
         Annealing model to use. Currently, the only acceptable value is
         'Ketcham99', which corresponds to the fanning curvilinear model from
-        Ketcham et al. (1999). Default is 'Ketcham99'. Only used if system is
+        Ketcham et al. (1999) (default: 'Ketcham99'). Only used if system is
         'AFT'.
     batch_size : int or 'auto', optional
-        Number of batches to be dispatched to each worker at a time during 
+        Number of jobs to be dispatched to each worker at a time during 
         parallel computation (default: 100). If set to 'auto', this value is
         dynamically adjusted during computations to try to optimize efficiency.
+        However, on most test systems, better efficiency is gained by manually 
+        setting batch size to 100 or 1000 than using 'auto'.
     processes : int or None, optional
         Maximum number of processes that can run concurrently. If None, this
         parameter is internally set to two less than the number of CPUs on the
@@ -694,7 +693,7 @@ def run_tt_paths(temp_paths, tsteps, system,
     -------
     ages : list of floats
         Thermochronometric ages for the given isotopic system for grains that 
-        experienced each of the provided time series. All (U-Th) / He ages 
+        experienced each of the provided time series. All (U-Th)/He ages 
         returned are corrected ages. 
     
     """
