@@ -309,7 +309,7 @@ def test_run_vtk_interpolate_no_overwrite():
     # Delete old directories
     prefix = 'meshes_'
     for sys in ['AHe', 'ZHe', 'AFT']:
-        with suppress(Exception):
+        with suppress(FileNotFoundError):
             shutil.rmtree('./' + prefix + sys + '_int')
 
     # Generate dummy VTK files for testing
